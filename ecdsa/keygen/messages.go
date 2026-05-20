@@ -7,16 +7,16 @@
 package keygen
 
 import (
-	"github.com/bnb-chain/tss-lib/v3/crypto/facproof"
-	"github.com/bnb-chain/tss-lib/v3/crypto/modproof"
+	"github.com/bnb-chain/tss-lib/v4/crypto/facproof"
+	"github.com/bnb-chain/tss-lib/v4/crypto/modproof"
 	"math/big"
 
-	"github.com/bnb-chain/tss-lib/v3/common"
-	cmt "github.com/bnb-chain/tss-lib/v3/crypto/commitments"
-	"github.com/bnb-chain/tss-lib/v3/crypto/dlnproof"
-	"github.com/bnb-chain/tss-lib/v3/crypto/paillier"
-	"github.com/bnb-chain/tss-lib/v3/crypto/vss"
-	"github.com/bnb-chain/tss-lib/v3/tss"
+	"github.com/bnb-chain/tss-lib/v4/common"
+	cmt "github.com/bnb-chain/tss-lib/v4/crypto/commitments"
+	"github.com/bnb-chain/tss-lib/v4/crypto/dlnproof"
+	"github.com/bnb-chain/tss-lib/v4/crypto/paillier"
+	"github.com/bnb-chain/tss-lib/v4/crypto/vss"
+	"github.com/bnb-chain/tss-lib/v4/tss"
 )
 
 // These messages were generated from Protocol Buffers definitions into ecdsa-keygen.pb.go

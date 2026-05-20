@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/bnb-chain/tss-lib/v3/common"
+	"github.com/bnb-chain/tss-lib/v4/common"
 )
 
 // PrepareForSigning(), Fig. 7

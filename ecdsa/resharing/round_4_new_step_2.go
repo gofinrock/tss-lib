@@ -12,16 +12,16 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/bnb-chain/tss-lib/v3/crypto/facproof"
+	"github.com/bnb-chain/tss-lib/v4/crypto/facproof"
 
 	errors2 "github.com/pkg/errors"
 
-	"github.com/bnb-chain/tss-lib/v3/common"
-	"github.com/bnb-chain/tss-lib/v3/crypto"
-	"github.com/bnb-chain/tss-lib/v3/crypto/commitments"
-	"github.com/bnb-chain/tss-lib/v3/crypto/vss"
-	"github.com/bnb-chain/tss-lib/v3/ecdsa/keygen"
-	"github.com/bnb-chain/tss-lib/v3/tss"
+	"github.com/bnb-chain/tss-lib/v4/common"
+	"github.com/bnb-chain/tss-lib/v4/crypto"
+	"github.com/bnb-chain/tss-lib/v4/crypto/commitments"
+	"github.com/bnb-chain/tss-lib/v4/crypto/vss"
+	"github.com/bnb-chain/tss-lib/v4/ecdsa/keygen"
+	"github.com/bnb-chain/tss-lib/v4/tss"
 )
 
 const paillierBitsLen = 2048

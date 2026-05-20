@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bnb-chain/tss-lib/v3/common"
-	. "github.com/bnb-chain/tss-lib/v3/crypto/modproof"
-	"github.com/bnb-chain/tss-lib/v3/ecdsa/keygen"
+	"github.com/bnb-chain/tss-lib/v4/common"
+	. "github.com/bnb-chain/tss-lib/v4/crypto/modproof"
+	"github.com/bnb-chain/tss-lib/v4/ecdsa/keygen"
 	"github.com/stretchr/testify/assert"
 )
 

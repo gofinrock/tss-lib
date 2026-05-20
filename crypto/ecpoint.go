@@ -18,7 +18,7 @@ import (
 
 	"github.com/decred/dcrd/dcrec/edwards/v2"
 
-	"github.com/bnb-chain/tss-lib/v3/tss"
+	"github.com/bnb-chain/tss-lib/v4/tss"
 )
 
 // ECPoint convenience helper

@@ -23,4 +23,4 @@ vendor
 .vscode/*.json
 
 # Local-only audit artefacts (audit reports, PoC tests, etc.)
-local_only/
+_local_only/
