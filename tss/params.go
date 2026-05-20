@@ -13,6 +13,8 @@ import (
 	"math/big"
 	"runtime"
 	"time"
+
+	"github.com/bnb-chain/tss-lib/v3/common"
 )
 
 type (
@@ -30,7 +32,8 @@ type (
 		// all parties (e.g., a coordinator-assigned session ID) to prevent cross-session
 		// proof replay. If not set, falls back to 0 (no session binding).
 		sessionNonce *big.Int
-		// for keygen
+		// for legacy keygen/resharing compatibility only. These flags weaken
+		// proof verification and should not be enabled in production.
 		noProofMod bool
 		noProofFac bool
 		// random sources
@@ -110,10 +113,12 @@ func (params *Parameters) NoProofFac() bool {
 }
 
 func (params *Parameters) SetNoProofMod() {
+	common.Logger.Warningf("SetNoProofMod enables legacy compatibility mode and weakens proof verification; do not use in production")
 	params.noProofMod = true
 }
 
 func (params *Parameters) SetNoProofFac() {
+	common.Logger.Warningf("SetNoProofFac enables legacy compatibility mode and weakens proof verification; do not use in production")
 	params.noProofFac = true
 }
 

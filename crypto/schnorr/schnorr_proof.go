@@ -63,18 +63,24 @@ func NewZKProof(Session []byte, x *big.Int, X *crypto.ECPoint, rand io.Reader) (
 
 // NewZKProof verifies a new Schnorr ZK proof of knowledge of the discrete logarithm (GG18Spec Fig. 16)
 func (pf *ZKProof) Verify(Session []byte, X *crypto.ECPoint) bool {
-	if pf == nil || !pf.ValidateBasic() {
+	if pf == nil || !pf.ValidateBasic() || X == nil || !X.ValidateBasic() {
 		return false
 	}
 	ec := X.Curve()
 	ecParams := ec.Params()
 	q := ecParams.N
+	if !isValidScalar(pf.T, q) {
+		return false
+	}
 	g := crypto.NewECPointNoCurveCheck(ec, ecParams.Gx, ecParams.Gy)
 
 	var c *big.Int
 	{
 		cHash := common.SHA512_256i_TAGGED(Session, X.X(), X.Y(), g.X(), g.Y(), pf.Alpha.X(), pf.Alpha.Y())
 		c = common.RejectionSample(q, cHash)
+	}
+	if c.Sign() == 0 {
+		return false
 	}
 	tG := crypto.ScalarBaseMult(ec, pf.T)
 	Xc := X.ScalarMult(c)
@@ -86,7 +92,7 @@ func (pf *ZKProof) Verify(Session []byte, X *crypto.ECPoint) bool {
 }
 
 func (pf *ZKProof) ValidateBasic() bool {
-	return pf.T != nil && pf.Alpha != nil
+	return pf.T != nil && pf.Alpha != nil && pf.Alpha.ValidateBasic()
 }
 
 // NewZKProof constructs a new Schnorr ZK proof of knowledge s_i, l_i such that V_i = R^s_i, g^l_i (GG18Spec Fig. 17)
@@ -128,18 +134,24 @@ func NewZKVProof(Session []byte, V, R *crypto.ECPoint, s, l *big.Int, rand io.Re
 }
 
 func (pf *ZKVProof) Verify(Session []byte, V, R *crypto.ECPoint) bool {
-	if pf == nil || !pf.ValidateBasic() {
+	if pf == nil || !pf.ValidateBasic() || V == nil || R == nil || !V.ValidateBasic() || !R.ValidateBasic() {
 		return false
 	}
 	ec := V.Curve()
 	ecParams := ec.Params()
 	q := ecParams.N
+	if !isValidScalar(pf.T, q) || !isValidScalar(pf.U, q) {
+		return false
+	}
 	g := crypto.NewECPointNoCurveCheck(ec, ecParams.Gx, ecParams.Gy)
 
 	var c *big.Int
 	{
 		cHash := common.SHA512_256i_TAGGED(Session, V.X(), V.Y(), R.X(), R.Y(), g.X(), g.Y(), pf.Alpha.X(), pf.Alpha.Y())
 		c = common.RejectionSample(q, cHash)
+	}
+	if c.Sign() == 0 {
+		return false
 	}
 	tR := R.ScalarMult(pf.T)
 	uG := crypto.ScalarBaseMult(ec, pf.U)
@@ -155,4 +167,8 @@ func (pf *ZKVProof) Verify(Session []byte, V, R *crypto.ECPoint) bool {
 
 func (pf *ZKVProof) ValidateBasic() bool {
 	return pf.Alpha != nil && pf.T != nil && pf.U != nil && pf.Alpha.ValidateBasic()
+}
+
+func isValidScalar(k, q *big.Int) bool {
+	return k != nil && k.Sign() > 0 && k.Cmp(q) < 0
 }

@@ -90,6 +90,28 @@ func TestVerify(t *testing.T) {
 	}
 }
 
+func TestVerifyRejectsZeroShare(t *testing.T) {
+	num, threshold := 5, 3
+
+	secret := common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N)
+	ids := make([]*big.Int, 0, num)
+	for i := 0; i < num; i++ {
+		ids = append(ids, common.GetRandomPositiveInt(rand.Reader, tss.EC().Params().N))
+	}
+
+	vs, shares, err := Create(tss.EC(), threshold, secret, ids, rand.Reader)
+	assert.NoError(t, err)
+
+	badShare := &Share{
+		Threshold: shares[0].Threshold,
+		ID:        shares[0].ID,
+		Share:     big.NewInt(0),
+	}
+	assert.NotPanics(t, func() {
+		assert.False(t, badShare.Verify(tss.EC(), threshold, vs))
+	})
+}
+
 func TestReconstruct(t *testing.T) {
 	num, threshold := 5, 3
 
