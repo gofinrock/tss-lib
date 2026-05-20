@@ -42,6 +42,16 @@ func TestFac(test *testing.T) {
 	ok := proof.Verify(Session, ec, N0, NCap, s, t)
 	assert.True(test, ok, "proof must verify")
 
+	q := ec.Params().N
+	q3 := new(big.Int).Mul(q, q)
+	q3.Mul(q3, q)
+	upperW := new(big.Int).Mul(q3, NCap)
+	upperW.Lsh(upperW, 1)
+	tampered := *proof
+	tampered.W1 = upperW
+	ok = tampered.Verify(Session, ec, N0, NCap, s, t)
+	assert.False(test, ok, "proof with oversized W1 must be rejected before exponentiation")
+
 	N0p = common.GetRandomPrimeInt(rand.Reader, 1024)
 	N0q = common.GetRandomPrimeInt(rand.Reader, 1024)
 	N0 = new(big.Int).Mul(N0p, N0q)

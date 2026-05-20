@@ -114,7 +114,7 @@ func RangeProofAliceFromBytes(bzs [][]byte) (*RangeProofAlice, error) {
 }
 
 func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillier.PublicKey, NTilde, h1, h2, c *big.Int) bool {
-	if pf == nil || !pf.ValidateBasic() || pk == nil || NTilde == nil || h1 == nil || h2 == nil || c == nil {
+	if pf == nil || !pf.ValidateBasic() || ec == nil || pk == nil || pk.N == nil || NTilde == nil || h1 == nil || h2 == nil || c == nil {
 		return false
 	}
 	// Reject c where gcd(c, N) != 1 to prevent nil pointer dereference from c^(-e) in modular exponentiation.
@@ -127,6 +127,8 @@ func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillie
 	q := ec.Params().N
 	q3 := new(big.Int).Mul(q, q)
 	q3 = new(big.Int).Mul(q, q3)
+	upperS2 := new(big.Int).Mul(q3, NTilde)
+	upperS2.Lsh(upperS2, 1)
 
 	if !common.IsInInterval(pf.Z, NTilde) {
 		return false
@@ -153,6 +155,9 @@ func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillie
 		return false
 	}
 	if pf.S2.Cmp(q) == -1 {
+		return false
+	}
+	if pf.S2.Cmp(upperS2) >= 0 {
 		return false
 	}
 	if pf.S.Cmp(one) == 0 {

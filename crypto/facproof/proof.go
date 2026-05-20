@@ -151,6 +151,12 @@ func (pf *ProofFac) Verify(Session []byte, ec elliptic.Curve, N0, NCap, s, t *bi
 	q3 = new(big.Int).Mul(q, q3)
 	sqrtN0 := new(big.Int).Sqrt(N0)
 	q3SqrtN0 := new(big.Int).Mul(q3, sqrtN0)
+	qNCap := new(big.Int).Mul(q, NCap)
+	qN0NCap := new(big.Int).Mul(qNCap, N0)
+	q3NCap := new(big.Int).Mul(q3, NCap)
+	q3N0NCap := new(big.Int).Mul(q3NCap, N0)
+	upperW := new(big.Int).Lsh(q3NCap, 1)
+	upperV := new(big.Int).Lsh(q3N0NCap, 2)
 
 	// Fig 28. Range Check
 	if !common.IsInInterval(pf.Z1, q3SqrtN0) {
@@ -158,6 +164,18 @@ func (pf *ProofFac) Verify(Session []byte, ec elliptic.Curve, N0, NCap, s, t *bi
 	}
 
 	if !common.IsInInterval(pf.Z2, q3SqrtN0) {
+		return false
+	}
+	if !common.IsInInterval(pf.W1, upperW) {
+		return false
+	}
+	if !common.IsInInterval(pf.W2, upperW) {
+		return false
+	}
+	if !common.IsInInterval(pf.Sigma, qN0NCap) {
+		return false
+	}
+	if !common.IsInInterval(pf.V, upperV) {
 		return false
 	}
 

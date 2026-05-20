@@ -122,3 +122,49 @@ func TestProveRangeAliceBypassed(t *testing.T) {
 	fmt.Println("Did verify proof bogus with data from bogus?", ok2)
 	fmt.Println("Did we bypass proof 3?", bypassresult3)
 }
+
+func TestRangeProofAliceRejectsOversizedS2(t *testing.T) {
+	q := tss.EC().Params().N
+	NTilde := big.NewInt(101)
+	q3 := new(big.Int).Mul(q, q)
+	q3.Mul(q3, q)
+	upperS2 := new(big.Int).Mul(q3, NTilde)
+	upperS2.Lsh(upperS2, 1)
+
+	proof := &RangeProofAlice{
+		Z:  big.NewInt(2),
+		U:  big.NewInt(2),
+		W:  big.NewInt(2),
+		S:  big.NewInt(2),
+		S1: new(big.Int).Set(q),
+		S2: upperS2,
+	}
+	pk := &paillier.PublicKey{N: big.NewInt(101)}
+
+	assert.False(t, proof.Verify(Session, tss.EC(), pk, NTilde, big.NewInt(2), big.NewInt(3), big.NewInt(2)))
+}
+
+func TestProofBobRejectsOversizedS2T2(t *testing.T) {
+	q := tss.EC().Params().N
+	NTilde := big.NewInt(101)
+	q3 := new(big.Int).Mul(q, q)
+	q3.Mul(q3, q)
+	upperS2T2 := new(big.Int).Mul(q3, NTilde)
+	upperS2T2.Lsh(upperS2T2, 1)
+
+	proof := &ProofBob{
+		Z:    big.NewInt(2),
+		ZPrm: big.NewInt(2),
+		T:    big.NewInt(2),
+		V:    big.NewInt(2),
+		W:    big.NewInt(2),
+		S:    big.NewInt(2),
+		S1:   new(big.Int).Set(q),
+		S2:   upperS2T2,
+		T1:   new(big.Int).Set(q),
+		T2:   new(big.Int).Set(q),
+	}
+	pk := &paillier.PublicKey{N: big.NewInt(101)}
+
+	assert.False(t, proof.Verify(Session, tss.EC(), pk, NTilde, big.NewInt(2), big.NewInt(3), big.NewInt(2), big.NewInt(3)))
+}
