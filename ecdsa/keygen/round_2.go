@@ -138,6 +138,11 @@ func (round *round2) Start() *tss.Error {
 
 	// 7. BROADCAST de-commitments of Shamir poly*G
 	modProof := &modproof.ProofMod{W: zero, X: *new([80]*big.Int), A: zero, B: zero, Z: *new([80]*big.Int)}
+	// nTildeModProof attests that the prover's own NTilde is a Blum-integer
+	// product of safe primes — blocking smooth-subgroup NTilde injection.
+	// The prover's own PreParams expose P and Q for NTilde directly, so the
+	// proof is generated identically to the Paillier ModProof above.
+	var nTildeModProof *modproof.ProofMod
 	if !round.Parameters.NoProofMod() {
 		var err error
 		modProof, err = modproof.NewProof(ContextI, round.save.PaillierSK.N,
@@ -145,8 +150,15 @@ func (round *round2) Start() *tss.Error {
 		if err != nil {
 			return round.WrapError(err, round.PartyID())
 		}
+		// LocalPreParams stores NTilde = P*Q where P, Q are safe primes; use
+		// these same primes (NOT the Paillier SK primes) for the NTilde proof.
+		nTildeModProof, err = modproof.NewProof(ContextI, round.save.NTildei,
+			round.save.LocalPreParams.P, round.save.LocalPreParams.Q, round.Rand())
+		if err != nil {
+			return round.WrapError(err, round.PartyID())
+		}
 	}
-	r2msg2 := NewKGRound2Message2(round.PartyID(), round.temp.deCommitPolyG, modProof)
+	r2msg2 := NewKGRound2Message2(round.PartyID(), round.temp.deCommitPolyG, modProof, nTildeModProof)
 	round.temp.kgRound2Message2s[i] = r2msg2
 	round.out <- r2msg2
 

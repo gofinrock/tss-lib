@@ -98,6 +98,27 @@ func (round *round3) Start() *tss.Error {
 					return
 				}
 			}
+			// Verify the ModProof for the peer's NTilde. The proof attests
+			// NTildej is a Blum-integer product of safe primes — closes the
+			// smooth-subgroup NTilde injection path that the existing
+			// 2048-bit BitLen check cannot detect.
+			//
+			// Backward compatibility: peers that pre-date this field ship an
+			// empty NTildeModProof; behave as NoProofMod() does for the
+			// Paillier ModProof above (warn, do not abort).
+			nTildeModProof, err := r2msg2.UnmarshalNTildeModProof()
+			if err != nil && round.Parameters.NoProofMod() {
+				common.Logger.Warningf("nTildeModProof not exist:%s", Ps[j])
+			} else {
+				if err != nil {
+					ch <- vssOut{errors.New("nTildeModProof verify failed"), nil}
+					return
+				}
+				if ok = nTildeModProof.Verify(ContextJ, round.save.NTildej[j]); !ok {
+					ch <- vssOut{errors.New("nTildeModProof verify failed"), nil}
+					return
+				}
+			}
 			r2msg1 := round.temp.kgRound2Message1s[j].Content().(*KGRound2Message1)
 			PjShare := vss.Share{
 				Threshold: round.Threshold(),
