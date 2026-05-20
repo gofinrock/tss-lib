@@ -73,12 +73,14 @@ func TestE2EConcurrent(t *testing.T) {
 	// init the old parties first
 	for j, pID := range oldPIDs {
 		params := tss.NewReSharingParameters(tss.S256(), oldP2PCtx, newP2PCtx, pID, testParticipants, threshold, newPCount, newThreshold)
+		params.SetSessionNonce(big.NewInt(1))
 		P := NewLocalParty(params, oldKeys[j], outCh, endCh).(*LocalParty) // discard old key data
 		oldCommittee = append(oldCommittee, P)
 	}
 	// init the new parties
 	for j, pID := range newPIDs {
 		params := tss.NewReSharingParameters(tss.S256(), oldP2PCtx, newP2PCtx, pID, testParticipants, threshold, newPCount, newThreshold)
+		params.SetSessionNonce(big.NewInt(1))
 		// do not use in untrusted setting
 		params.SetNoProofMod()
 		// do not use in untrusted setting

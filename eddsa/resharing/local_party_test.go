@@ -69,6 +69,7 @@ func TestE2EConcurrent(t *testing.T) {
 	// init the old parties first
 	for j, pID := range oldPIDs {
 		params := tss.NewReSharingParameters(tss.Edwards(), oldP2PCtx, newP2PCtx, pID, testParticipants, threshold, newPCount, newThreshold)
+		params.SetSessionNonce(big.NewInt(1))
 		P := NewLocalParty(params, oldKeys[j], outCh, endCh).(*LocalParty) // discard old key data
 		oldCommittee = append(oldCommittee, P)
 	}
@@ -76,6 +77,7 @@ func TestE2EConcurrent(t *testing.T) {
 	// init the new parties
 	for _, pID := range newPIDs {
 		params := tss.NewReSharingParameters(tss.Edwards(), oldP2PCtx, newP2PCtx, pID, testParticipants, threshold, newPCount, newThreshold)
+		params.SetSessionNonce(big.NewInt(1))
 		save := keygen.NewLocalPartySaveData(newPCount)
 		P := NewLocalParty(params, save, outCh, endCh).(*LocalParty)
 		newCommittee = append(newCommittee, P)

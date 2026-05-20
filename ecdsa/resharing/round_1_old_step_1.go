@@ -40,14 +40,14 @@ func (round *round1) Start() *tss.Error {
 	}
 	round.allOldOK()
 
-	// GG20 session binding: use caller-provided session nonce if available.
-	// For resharing, all parties must agree on the nonce via external coordination
-	// (e.g., coordinator-assigned session ID) since no shared session-unique
-	// value is available within the protocol itself.
+	// Require caller-provided SessionNonce — see ecdsa/keygen/round_1.go
+	// for full rationale (applies to resharing too).
 	if nonce := round.Params().SessionNonce(); nonce != nil {
 		round.temp.ssidNonce = new(big.Int).Set(nonce)
 	} else {
-		round.temp.ssidNonce = new(big.Int).SetUint64(0)
+		return round.WrapError(errors.New(
+			"resharing requires a session nonce; call Parameters.SetSessionNonce " +
+				"with a value agreed by all parties before starting the round"))
 	}
 	ssid, err := round.getSSID()
 	if err != nil {
