@@ -43,6 +43,11 @@ func AliceInit(
 	return cA, pf, err
 }
 
+// ErrRangeProofVerify signals that BobMid / BobMidWC rejected the peer's
+// supplied RangeProofAlice. Callers should attribute this error to the
+// peer Pj (not the local party). Wrapped via fmt.Errorf for errors.Is.
+var ErrRangeProofVerify = errors.New("RangeProofAlice.Verify() returned false")
+
 func BobMid(
 	Session []byte,
 	ec elliptic.Curve,
@@ -52,7 +57,7 @@ func BobMid(
 	rand io.Reader,
 ) (beta, cB, betaPrm *big.Int, piB *ProofBob, err error) {
 	if !pf.Verify(Session, ec, pkA, NTildeB, h1B, h2B, cA) {
-		err = errors.New("RangeProofAlice.Verify() returned false")
+		err = ErrRangeProofVerify
 		return
 	}
 	q := ec.Params().N
@@ -87,7 +92,7 @@ func BobMidWC(
 	rand io.Reader,
 ) (beta, cB, betaPrm *big.Int, piB *ProofBobWC, err error) {
 	if !pf.Verify(Session, ec, pkA, NTildeB, h1B, h2B, cA) {
-		err = errors.New("RangeProofAlice.Verify() returned false")
+		err = ErrRangeProofVerify
 		return
 	}
 	q := ec.Params().N
