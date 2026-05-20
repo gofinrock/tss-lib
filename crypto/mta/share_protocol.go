@@ -124,19 +124,13 @@ func AliceEnd(
 		return nil, errors.New("ProofBob.Verify() returned false")
 	}
 
-	var alphaPrm *big.Int
-	var err error
-
-	if common.IsConstantTimeEnabled() {
-		// Apply timing protection to Paillier decryption when constant-time mode is enabled.
-		// This normalizes the response time to prevent timing side-channel attacks.
-		alphaPrm, err = mtaTimingProtection.ProtectBigInt(func() (*big.Int, error) {
-			return sk.Decrypt(cB)
-		})
-	} else {
-		// Standard decryption without timing protection
-		alphaPrm, err = sk.Decrypt(cB)
-	}
+	// Timing protection runs unconditionally so Paillier Decrypt's response
+	// time is normalised regardless of whether the constant-time exponent
+	// path is in use; the padding is the primary side-channel mitigation
+	// and must not depend on caller opt-in.
+	alphaPrm, err := mtaTimingProtection.ProtectBigInt(func() (*big.Int, error) {
+		return sk.Decrypt(cB)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -158,19 +152,13 @@ func AliceEndWC(
 		return nil, errors.New("ProofBobWC.Verify() returned false")
 	}
 
-	var alphaPrm *big.Int
-	var err error
-
-	if common.IsConstantTimeEnabled() {
-		// Apply timing protection to Paillier decryption when constant-time mode is enabled.
-		// This normalizes the response time to prevent timing side-channel attacks.
-		alphaPrm, err = mtaTimingProtection.ProtectBigInt(func() (*big.Int, error) {
-			return sk.Decrypt(cB)
-		})
-	} else {
-		// Standard decryption without timing protection
-		alphaPrm, err = sk.Decrypt(cB)
-	}
+	// Timing protection runs unconditionally so Paillier Decrypt's response
+	// time is normalised regardless of whether the constant-time exponent
+	// path is in use; the padding is the primary side-channel mitigation
+	// and must not depend on caller opt-in.
+	alphaPrm, err := mtaTimingProtection.ProtectBigInt(func() (*big.Int, error) {
+		return sk.Decrypt(cB)
+	})
 	if err != nil {
 		return nil, err
 	}
