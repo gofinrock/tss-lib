@@ -121,17 +121,31 @@ func NewDGRound2Message1(
 	return tss.NewMessage(meta, content, msg), nil
 }
 
+// minResharePaillierBitLen mirrors keygen's `minPaillierBitLen` for the
+// resharing path. Same GG18 §3 D3 requirement: |N| >= 2048 for secp256k1.
+const minResharePaillierBitLen = 2048
+
 func (m *DGRound2Message1) ValidateBasic() bool {
-	return m != nil &&
-		// use with NoProofFac()
-		// common.NonEmptyMultiBytes(m.ModProof, modproof.ProofModBytesParts) &&
-		common.NonEmptyBytes(m.PaillierN) &&
-		common.NonEmptyBytes(m.NTilde) &&
-		common.NonEmptyBytes(m.H1) &&
-		common.NonEmptyBytes(m.H2) &&
+	if m == nil ||
+		!common.NonEmptyBytes(m.PaillierN) ||
+		!common.NonEmptyBytes(m.NTilde) ||
+		!common.NonEmptyBytes(m.H1) ||
+		!common.NonEmptyBytes(m.H2) ||
 		// expected len of dln proof = sizeof(int64) + len(alpha) + len(t)
-		common.NonEmptyMultiBytes(m.GetDlnproof_1(), 2+(dlnproof.Iterations*2)) &&
-		common.NonEmptyMultiBytes(m.GetDlnproof_2(), 2+(dlnproof.Iterations*2))
+		!common.NonEmptyMultiBytes(m.GetDlnproof_1(), 2+(dlnproof.Iterations*2)) ||
+		!common.NonEmptyMultiBytes(m.GetDlnproof_2(), 2+(dlnproof.Iterations*2)) {
+		return false
+	}
+	// Align with keygen's bitlen floor at the message-decode layer.
+	// Round 4 also enforces the same floor; this catches malformed
+	// messages earlier for any consumer that runs ValidateBasic alone.
+	if new(big.Int).SetBytes(m.PaillierN).BitLen() < minResharePaillierBitLen {
+		return false
+	}
+	if new(big.Int).SetBytes(m.NTilde).BitLen() < minResharePaillierBitLen {
+		return false
+	}
+	return true
 }
 
 func (m *DGRound2Message1) UnmarshalPaillierPK() *paillier.PublicKey {
