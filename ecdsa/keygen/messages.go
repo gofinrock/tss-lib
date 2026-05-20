@@ -66,16 +66,36 @@ func NewKGRound1Message(
 	return tss.NewMessage(meta, content, msg), nil
 }
 
+// minPaillierBitLen is the lower bound on |N| for both the Paillier modulus
+// and NTilde at message-decode time. GG18 §3 (defect D3) requires N > q^8
+// for secp256k1-class threshold ECDSA; with q ≈ 2^256 this gives |N| ≥ 2048.
+// keygen round_2.go enforces an exact bitlen of 2048 once messages reach
+// the round handler, but the bitlen check at the message-validation layer
+// closes the gap for any caller that runs ValidateBasic without ever
+// reaching round_2 (e.g. monitoring / replay code).
+const minPaillierBitLen = 2048
+
 func (m *KGRound1Message) ValidateBasic() bool {
-	return m != nil &&
-		common.NonEmptyBytes(m.GetCommitment()) &&
-		common.NonEmptyBytes(m.GetPaillierN()) &&
-		common.NonEmptyBytes(m.GetNTilde()) &&
-		common.NonEmptyBytes(m.GetH1()) &&
-		common.NonEmptyBytes(m.GetH2()) &&
+	if m == nil ||
+		!common.NonEmptyBytes(m.GetCommitment()) ||
+		!common.NonEmptyBytes(m.GetPaillierN()) ||
+		!common.NonEmptyBytes(m.GetNTilde()) ||
+		!common.NonEmptyBytes(m.GetH1()) ||
+		!common.NonEmptyBytes(m.GetH2()) ||
 		// expected len of dln proof = sizeof(int64) + len(alpha) + len(t)
-		common.NonEmptyMultiBytes(m.GetDlnproof_1(), 2+(dlnproof.Iterations*2)) &&
-		common.NonEmptyMultiBytes(m.GetDlnproof_2(), 2+(dlnproof.Iterations*2))
+		!common.NonEmptyMultiBytes(m.GetDlnproof_1(), 2+(dlnproof.Iterations*2)) ||
+		!common.NonEmptyMultiBytes(m.GetDlnproof_2(), 2+(dlnproof.Iterations*2)) {
+		return false
+	}
+	// Reject any peer whose PaillierN or NTilde fails the |N| ≥ 2048
+	// bit-length floor (= 8·|q| for secp256k1 / GG18 D3).
+	if new(big.Int).SetBytes(m.GetPaillierN()).BitLen() < minPaillierBitLen {
+		return false
+	}
+	if new(big.Int).SetBytes(m.GetNTilde()).BitLen() < minPaillierBitLen {
+		return false
+	}
+	return true
 }
 
 func (m *KGRound1Message) UnmarshalCommitment() *big.Int {
