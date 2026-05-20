@@ -59,13 +59,37 @@ func (p *ECPoint) Add(p1 *ECPoint) (*ECPoint, error) {
 	return NewECPoint(p.curve, x, y)
 }
 
+// ScalarMult returns p * k. When k ≡ 0 mod n (identity) or any other input
+// produces an off-curve representation, ScalarMult returns nil rather than
+// panicking. Callers MUST check the returned pointer before use; pairs of
+// hardened call sites (Schnorr / VSS / MtA Verify) validate scalars upstream,
+// so a nil return here indicates either an unvalidated direct API consumer
+// or a degenerate honest case (zero contribution) that should be treated as
+// an error by the protocol.
 func (p *ECPoint) ScalarMult(k *big.Int) *ECPoint {
+	if p == nil || k == nil {
+		return nil
+	}
 	x, y := p.curve.ScalarMult(p.X(), p.Y(), k.Bytes())
-	newP, err := NewECPoint(p.curve, x, y) // it must be on the curve, no need to check.
+	newP, err := NewECPoint(p.curve, x, y)
 	if err != nil {
-		panic(fmt.Errorf("scalar mult to an ecpoint %s", err.Error()))
+		return nil
 	}
 	return newP
+}
+
+// ScalarMultErr is the explicit-error variant of ScalarMult. Returns
+// (*ECPoint, error) instead of the nil-on-error convention; useful for
+// internal callers that want to propagate the curve error.
+func (p *ECPoint) ScalarMultErr(k *big.Int) (*ECPoint, error) {
+	if p == nil {
+		return nil, errors.New("ScalarMultErr: receiver is nil")
+	}
+	if k == nil {
+		return nil, errors.New("ScalarMultErr: scalar k is nil")
+	}
+	x, y := p.curve.ScalarMult(p.X(), p.Y(), k.Bytes())
+	return NewECPoint(p.curve, x, y)
 }
 
 func (p *ECPoint) ToECDSAPubKey() *ecdsa.PublicKey {
@@ -101,16 +125,38 @@ func (p *ECPoint) ValidateBasic() bool {
 }
 
 func (p *ECPoint) EightInvEight() *ECPoint {
-	return p.ScalarMult(eight).ScalarMult(eightInv)
+	q := p.ScalarMult(eight)
+	if q == nil {
+		return nil
+	}
+	return q.ScalarMult(eightInv)
 }
 
+// ScalarBaseMult returns g * k (curve base point times k). On any error
+// (including k ≡ 0 mod n which yields the off-curve identity) returns nil.
+// See ScalarMult doc for the nil-on-error rationale.
 func ScalarBaseMult(curve elliptic.Curve, k *big.Int) *ECPoint {
+	if curve == nil || k == nil {
+		return nil
+	}
 	x, y := curve.ScalarBaseMult(k.Bytes())
-	p, err := NewECPoint(curve, x, y) // it must be on the curve, no need to check.
+	p, err := NewECPoint(curve, x, y)
 	if err != nil {
-		panic(fmt.Errorf("scalar mult to an ecpoint %s", err.Error()))
+		return nil
 	}
 	return p
+}
+
+// ScalarBaseMultErr is the explicit-error variant of ScalarBaseMult.
+func ScalarBaseMultErr(curve elliptic.Curve, k *big.Int) (*ECPoint, error) {
+	if curve == nil {
+		return nil, errors.New("ScalarBaseMultErr: curve is nil")
+	}
+	if k == nil {
+		return nil, errors.New("ScalarBaseMultErr: scalar k is nil")
+	}
+	x, y := curve.ScalarBaseMult(k.Bytes())
+	return NewECPoint(curve, x, y)
 }
 
 func isOnCurve(c elliptic.Curve, x, y *big.Int) bool {
