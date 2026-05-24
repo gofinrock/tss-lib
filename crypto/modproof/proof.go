@@ -17,6 +17,12 @@ import (
 const (
 	Iterations         = 80
 	ProofModBytesParts = Iterations*2 + 3
+	// Minimum modulus bit length accepted by Verify. Matches the keygen/
+	// resharing wire-format checks for NTilde (paillierBitsLen = 2048).
+	verifyMinModulusBitLen = 2048
+	// Miller-Rabin rounds for the composite check; 30 gives ≤4^-30
+	// false-positive rate against arbitrary composites.
+	verifyPrimalityRounds = 30
 )
 
 var one = big.NewInt(1)
@@ -152,7 +158,15 @@ func (pf *ProofMod) Verify(Session []byte, N *big.Int) bool {
 	if pf == nil || !pf.ValidateBasic() {
 		return false
 	}
-	// TODO: add basic properties checker
+	// Validate N before any operation that requires it to be a positive odd
+	// composite. big.Jacobi panics on nil/non-positive/even modulus, and
+	// RejectionSample loops forever on N <= 1, so the original ordering
+	// (which only checked oddness/compositeness at line ~192) left a panic
+	// surface reachable from a malformed message.
+	if N == nil || N.Sign() != 1 || N.Bit(0) == 0 ||
+		N.BitLen() < verifyMinModulusBitLen || N.ProbablyPrime(verifyPrimalityRounds) {
+		return false
+	}
 	if isQuadraticResidue(pf.W, N) {
 		return false
 	}
@@ -185,13 +199,6 @@ func (pf *ProofMod) Verify(Session []byte, N *big.Int) bool {
 	for i := range Y {
 		ei := common.SHA512_256i_TAGGED(Session, append([]*big.Int{pf.W, N}, Y[:i]...)...)
 		Y[i] = common.RejectionSample(N, ei)
-	}
-
-	// Fig 16. Verification
-	{
-		if N.Bit(0) == 0 || N.ProbablyPrime(30) {
-			return false
-		}
 	}
 
 	chs := make(chan bool, Iterations*2)
