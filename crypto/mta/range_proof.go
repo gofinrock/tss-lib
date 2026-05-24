@@ -170,6 +170,13 @@ func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillie
 	if new(big.Int).GCD(nil, nil, pf.W, NTilde).Cmp(one) != 0 {
 		return false
 	}
+	// Mirror of the ProofBob/WC.Verify gcd(S, N) check. Honest S = r^e ·
+	// beta mod N is a unit (beta is sampled coprime to N, r is in Z_N*);
+	// reject the non-unit case directly rather than relying on downstream
+	// equality checks to catch it.
+	if new(big.Int).GCD(nil, nil, pf.S, pk.N).Cmp(one) != 0 {
+		return false
+	}
 	if pf.S1.Cmp(q) == -1 {
 		return false
 	}

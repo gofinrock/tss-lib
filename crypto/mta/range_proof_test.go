@@ -186,6 +186,13 @@ func TestRangeProofAliceVerifyRejectsMalformedInputs(t *testing.T) {
 		nonCanonical := new(big.Int).Add(pk.NSquare(), c)
 		assert.False(tt, proof.Verify(Session, tss.EC(), pk, NTilde, h1, h2, nonCanonical))
 	})
+	t.Run("S shares factor with pk.N", func(tt *testing.T) {
+		bad := *proof
+		// sk.P is a prime factor of pk.N, so gcd(sk.P, pk.N) = sk.P > 1
+		// while sk.P < pk.N keeps IsInInterval(S, pk.N) happy.
+		bad.S = new(big.Int).Set(sk.P)
+		assert.False(tt, bad.Verify(Session, tss.EC(), pk, NTilde, h1, h2, c))
+	})
 }
 
 func TestProofBobWCVerifyRejectsMalformedInputs(t *testing.T) {

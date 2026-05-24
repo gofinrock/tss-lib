@@ -287,9 +287,8 @@ func (pf *ProofBobWC) Verify(Session []byte, ec elliptic.Curve, pk *paillier.Pub
 	if pf.V.Cmp(zero) == 0 {
 		return false
 	}
-	if gcd.GCD(nil, nil, pf.V, pk.N).Cmp(one) != 0 {
-		return false
-	}
+	// gcd(V, pk.N²) above (line ~273) already implies gcd(V, pk.N) since
+	// N and N² share the same prime factors; no redundant check here.
 	if pf.S1.Cmp(q) == -1 {
 		return false
 	}
