@@ -36,6 +36,14 @@ const (
 	ProofIters         = 13
 	verifyPrimesUntil  = 1000 // Verify uses primes <1000
 	pQBitLenDifference = 3    // >1020-bit P-Q
+	// Minimum Paillier modulus bit length accepted by Proof.Verify. Matches
+	// the GG18Spec recommendation and the paillierBitsLen used by the
+	// keygen/resharing wire-format checks.
+	verifyMinModulusBitLen = 2048
+	// Miller-Rabin rounds for the composite check below; 30 gives ≤4^-30
+	// false-positive rate against arbitrary composites — well below
+	// cryptographic concern thresholds.
+	verifyPrimalityRounds = 30
 )
 
 type (
@@ -263,7 +271,40 @@ func (privateKey *PrivateKey) Proof(k *big.Int, ecdsaPub *crypto2.ECPoint) Proof
 }
 
 func (pf Proof) Verify(pkN, k *big.Int, ecdsaPub *crypto2.ECPoint) (bool, error) {
+	// Input validation. Done synchronously up-front so malformed inputs cannot
+	// reach GenerateXs (which dereferences k/ecdsaPub and would loop without a
+	// sane pkN bit length).
+	if pkN == nil || k == nil || ecdsaPub == nil || !ecdsaPub.ValidateBasic() {
+		return false, nil
+	}
+	if pkN.Sign() != 1 || pkN.Bit(0) == 0 || pkN.BitLen() < verifyMinModulusBitLen {
+		return false, nil
+	}
+	// Reject prime pkN. By Fermat's little theorem, x^p ≡ x (mod p) for every
+	// x ∈ Z_p*, so a malicious prover with a prime modulus can set pf[i] = xi
+	// (the verifier-derived challenge) and pass every iteration without ever
+	// proving knowledge of a factorization. The trial-division goroutine below
+	// only catches primes/composites with factors < verifyPrimesUntil; this
+	// ProbablyPrime check closes the gap for larger primes.
+	if pkN.ProbablyPrime(verifyPrimalityRounds) {
+		return false, nil
+	}
 	iters := ProofIters
+	for i := 0; i < iters; i++ {
+		if pf[i] == nil {
+			return false, nil
+		}
+		// pf[i] must be a canonical unit in Z_{pkN}*. The iteration check
+		// pf[i]^pkN mod pkN otherwise has degenerate cases (pf[i]=0 makes
+		// both sides 0 when xi happens to vanish; non-unit pf[i] leaks
+		// gcd(pf[i], pkN) via the modexp).
+		if pf[i].Sign() != 1 || pf[i].Cmp(pkN) != -1 {
+			return false, nil
+		}
+		if new(big.Int).GCD(nil, nil, pf[i], pkN).Cmp(one) != 0 {
+			return false, nil
+		}
+	}
 	pch, xch := make(chan bool, 1), make(chan []*big.Int, 1) // buffered to allow early exit
 	prms := primes.Until(verifyPrimesUntil).List()           // uses cache primed in init()
 	go func(ch chan<- bool) {
