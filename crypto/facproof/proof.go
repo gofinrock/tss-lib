@@ -96,7 +96,7 @@ func NewProof(Session []byte, ec elliptic.Curve, N0, NCap, s, t, N0p, N0q *big.I
 	var e *big.Int
 	{
 		eHash := common.SHA512_256i_TAGGED(Session, N0, NCap, s, t, P, Q, A, B, T, sigma)
-		e = common.RejectionSample(q, eHash)
+		e = common.ModReduceHash(q, eHash)
 	}
 
 	// Fig 28.3
@@ -185,31 +185,33 @@ func (pf *ProofFac) Verify(Session []byte, ec elliptic.Curve, N0, NCap, s, t *bi
 	upperW := new(big.Int).Lsh(q3NCap, 1)
 	upperV := new(big.Int).Lsh(q3N0NCap, 2)
 
-	// Fig 28. Range Check
-	if !common.IsInInterval(pf.Z1, q3SqrtN0) {
+	// Fig 28. Range Check. Use IsInIntervalPositive (not IsInInterval) so
+	// the lower bound is open: the honest prover samples all six values
+	// via GetRandomPositiveInt, so b == 0 is never produced by the spec.
+	if !common.IsInIntervalPositive(pf.Z1, q3SqrtN0) {
 		return false
 	}
 
-	if !common.IsInInterval(pf.Z2, q3SqrtN0) {
+	if !common.IsInIntervalPositive(pf.Z2, q3SqrtN0) {
 		return false
 	}
-	if !common.IsInInterval(pf.W1, upperW) {
+	if !common.IsInIntervalPositive(pf.W1, upperW) {
 		return false
 	}
-	if !common.IsInInterval(pf.W2, upperW) {
+	if !common.IsInIntervalPositive(pf.W2, upperW) {
 		return false
 	}
-	if !common.IsInInterval(pf.Sigma, qN0NCap) {
+	if !common.IsInIntervalPositive(pf.Sigma, qN0NCap) {
 		return false
 	}
-	if !common.IsInInterval(pf.V, upperV) {
+	if !common.IsInIntervalPositive(pf.V, upperV) {
 		return false
 	}
 
 	var e *big.Int
 	{
 		eHash := common.SHA512_256i_TAGGED(Session, N0, NCap, s, t, pf.P, pf.Q, pf.A, pf.B, pf.T, pf.Sigma)
-		e = common.RejectionSample(q, eHash)
+		e = common.ModReduceHash(q, eHash)
 	}
 	// Reject e == 0 for consistency with the Schnorr verifier. The
 	// probability is negligible under Fiat-Shamir, but a zero challenge

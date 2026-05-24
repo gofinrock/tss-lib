@@ -51,7 +51,7 @@ func NewProof(Session []byte, N, P, Q *big.Int, rand io.Reader) (*ProofMod, erro
 	Y := [Iterations]*big.Int{}
 	for i := range Y {
 		ei := common.SHA512_256i_TAGGED(Session, append([]*big.Int{W, N}, Y[:i]...)...)
-		Y[i] = common.RejectionSample(N, ei)
+		Y[i] = common.ModReduceHash(N, ei)
 	}
 
 	// Fig 16.3
@@ -207,7 +207,7 @@ func (pf *ProofMod) Verify(Session []byte, N *big.Int) bool {
 	Y := [Iterations]*big.Int{}
 	for i := range Y {
 		ei := common.SHA512_256i_TAGGED(Session, append([]*big.Int{pf.W, N}, Y[:i]...)...)
-		Y[i] = common.RejectionSample(N, ei)
+		Y[i] = common.ModReduceHash(N, ei)
 	}
 
 	chs := make(chan bool, Iterations*2)

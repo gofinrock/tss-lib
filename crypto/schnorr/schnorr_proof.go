@@ -44,7 +44,7 @@ func NewZKProof(Session []byte, x *big.Int, X *crypto.ECPoint, rand io.Reader) (
 	var c *big.Int
 	{
 		cHash := common.SHA512_256i_TAGGED(Session, X.X(), X.Y(), g.X(), g.Y(), alpha.X(), alpha.Y())
-		c = common.RejectionSample(q, cHash)
+		c = common.ModReduceHash(q, cHash)
 	}
 
 	var t *big.Int
@@ -91,7 +91,7 @@ func (pf *ZKProof) Verify(Session []byte, X *crypto.ECPoint) bool {
 	var c *big.Int
 	{
 		cHash := common.SHA512_256i_TAGGED(Session, X.X(), X.Y(), g.X(), g.Y(), pf.Alpha.X(), pf.Alpha.Y())
-		c = common.RejectionSample(q, cHash)
+		c = common.ModReduceHash(q, cHash)
 	}
 	if c.Sign() == 0 {
 		return false
@@ -130,7 +130,7 @@ func NewZKVProof(Session []byte, V, R *crypto.ECPoint, s, l *big.Int, rand io.Re
 	var c *big.Int
 	{
 		cHash := common.SHA512_256i_TAGGED(Session, V.X(), V.Y(), R.X(), R.Y(), g.X(), g.Y(), alpha.X(), alpha.Y())
-		c = common.RejectionSample(q, cHash)
+		c = common.ModReduceHash(q, cHash)
 	}
 	modQ := common.ModInt(q)
 
@@ -170,7 +170,7 @@ func (pf *ZKVProof) Verify(Session []byte, V, R *crypto.ECPoint) bool {
 	var c *big.Int
 	{
 		cHash := common.SHA512_256i_TAGGED(Session, V.X(), V.Y(), R.X(), R.Y(), g.X(), g.Y(), pf.Alpha.X(), pf.Alpha.Y())
-		c = common.RejectionSample(q, cHash)
+		c = common.ModReduceHash(q, cHash)
 	}
 	if c.Sign() == 0 {
 		return false

@@ -84,7 +84,7 @@ func ProveRangeAlice(Session []byte, ec elliptic.Curve, pk *paillier.PublicKey, 
 	var e *big.Int
 	{ // must use RejectionSample
 		eHash := common.SHA512_256i_TAGGED(Session, append(pk.AsInts(), NTilde, h1, h2, c, z, u, w)...)
-		e = common.RejectionSample(q, eHash)
+		e = common.ModReduceHash(q, eHash)
 	}
 
 	modN := common.ModInt(pk.N)
@@ -205,7 +205,7 @@ func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillie
 	var e *big.Int
 	{ // must use RejectionSample
 		eHash := common.SHA512_256i_TAGGED(Session, append(pk.AsInts(), NTilde, h1, h2, c, pf.Z, pf.U, pf.W)...)
-		e = common.RejectionSample(q, eHash)
+		e = common.ModReduceHash(q, eHash)
 	}
 	// Reject e == 0 for consistency with Schnorr / ProofBobWC. Negligible
 	// under Fiat-Shamir but a zero challenge collapses the Σ relation.

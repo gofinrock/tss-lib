@@ -126,7 +126,7 @@ func ProveBobWC(Session []byte, ec elliptic.Curve, pk *paillier.PublicKey, NTild
 		} else {
 			eHash = common.SHA512_256i_TAGGED(Session, append(pk.AsInts(), NTilde, h1, h2, X.X(), X.Y(), c1, c2, u.X(), u.Y(), z, zPrm, t, v, w)...)
 		}
-		e = common.RejectionSample(q, eHash)
+		e = common.ModReduceHash(q, eHash)
 	}
 
 	// 13.
@@ -329,7 +329,7 @@ func (pf *ProofBobWC) Verify(Session []byte, ec elliptic.Curve, pk *paillier.Pub
 			}
 			eHash = common.SHA512_256i_TAGGED(Session, append(pk.AsInts(), NTilde, h1, h2, X.X(), X.Y(), c1, c2, pf.U.X(), pf.U.Y(), pf.Z, pf.ZPrm, pf.T, pf.V, pf.W)...)
 		}
-		e = common.RejectionSample(q, eHash)
+		e = common.ModReduceHash(q, eHash)
 	}
 	// Reject e == 0 for both with-check and without-check variants.
 	// Negligible under Fiat-Shamir but a zero challenge collapses the Σ

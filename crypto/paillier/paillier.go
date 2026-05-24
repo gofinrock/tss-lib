@@ -270,11 +270,27 @@ func (privateKey *PrivateKey) Proof(k *big.Int, ecdsaPub *crypto2.ECPoint) Proof
 	return pi
 }
 
+// Verify checks a Paillier modulus proof produced by PrivateKey.Proof.
+//
+// pkN is the public Paillier modulus; k is a session-binding value
+// (typically a PartyID key); ecdsaPub is the joint ECDSA public key from
+// keygen. ecdsaPub's curve is consulted only via ecdsaPub.ValidateBasic
+// (i.e. on-curve relative to the point's own stored curve). Callers that
+// reuse this verifier outside the keygen flow — where tss.EC() is the
+// implicit shared curve — should validate ecdsaPub.Curve() matches the
+// expected curve themselves before calling Verify.
 func (pf Proof) Verify(pkN, k *big.Int, ecdsaPub *crypto2.ECPoint) (bool, error) {
 	// Input validation. Done synchronously up-front so malformed inputs cannot
 	// reach GenerateXs (which dereferences k/ecdsaPub and would loop without a
 	// sane pkN bit length).
 	if pkN == nil || k == nil || ecdsaPub == nil || !ecdsaPub.ValidateBasic() {
+		return false, nil
+	}
+	// k is hashed via k.Bytes() inside GenerateXs, which returns the
+	// absolute value — distinct signed k inputs would alias to the same
+	// xi. Reject negative k so the caller never produces ambiguous
+	// transcripts.
+	if k.Sign() < 0 {
 		return false, nil
 	}
 	if pkN.Sign() != 1 || pkN.Bit(0) == 0 || pkN.BitLen() < verifyMinModulusBitLen {
