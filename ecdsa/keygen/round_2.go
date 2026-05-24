@@ -150,10 +150,15 @@ func (round *round2) Start() *tss.Error {
 		if err != nil {
 			return round.WrapError(err, round.PartyID())
 		}
-		// LocalPreParams stores NTilde = P*Q where P, Q are safe primes; use
-		// these same primes (NOT the Paillier SK primes) for the NTilde proof.
+		// NTilde = (2p+1)(2q+1); LocalPreParams.P, Q store the Germain primes
+		// p, q (used for the DLN proof's subgroup order), NOT the safe-prime
+		// factors of NTilde. Derive the safe primes 2p+1, 2q+1 here so the
+		// ModProof is built from the actual factors of NTilde.
+		one := big.NewInt(1)
+		safePrimeP := new(big.Int).Add(new(big.Int).Lsh(round.save.LocalPreParams.P, 1), one)
+		safePrimeQ := new(big.Int).Add(new(big.Int).Lsh(round.save.LocalPreParams.Q, 1), one)
 		nTildeModProof, err = modproof.NewProof(ContextI, round.save.NTildei,
-			round.save.LocalPreParams.P, round.save.LocalPreParams.Q, round.Rand())
+			safePrimeP, safePrimeQ, round.Rand())
 		if err != nil {
 			return round.WrapError(err, round.PartyID())
 		}
