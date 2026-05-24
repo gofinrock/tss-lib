@@ -44,3 +44,23 @@ func IsCanonicalGenerator(n, v *big.Int) bool {
 	}
 	return v.Cmp(one) > 0
 }
+
+// IsCanonicalPaillierCiphertext reports whether c is a canonical Paillier
+// ciphertext under modulus N: c ∈ (0, N²) and gcd(c, N) = 1. The gcd
+// condition prevents proofs from using non-units that can leak factors via
+// modexp; the upper bound rejects non-canonical representations c + k·N²
+// that would otherwise pass purely-modular checks.
+//
+// Callers should still validate N separately via IsUsableUnknownOrderModulus
+// when N is itself attacker-controlled.
+func IsCanonicalPaillierCiphertext(c, N *big.Int) bool {
+	if c == nil || N == nil || N.Sign() != 1 {
+		return false
+	}
+	NSquared := new(big.Int).Mul(N, N)
+	if c.Sign() != 1 || c.Cmp(NSquared) >= 0 {
+		return false
+	}
+	gcd := new(big.Int).GCD(nil, nil, c, N)
+	return gcd.Cmp(one) == 0
+}

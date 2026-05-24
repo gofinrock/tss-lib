@@ -215,6 +215,25 @@ func (pf *ProofBobWC) Verify(Session []byte, ec elliptic.Curve, pk *paillier.Pub
 	if X != nil && pf.U == nil {
 		return false
 	}
+	// pk.N and NTilde must be plausible unknown-order moduli before any
+	// modular arithmetic runs. NTilde and the public generators h1, h2
+	// arrive from the peer's keygen output, so the verifier must validate
+	// canonical-group shape rather than trust the upstream.
+	if !common.IsUsableUnknownOrderModulus(pk.N, verifyMinModulusBitLen) {
+		return false
+	}
+	if !common.IsUsableUnknownOrderModulus(NTilde, verifyMinModulusBitLen) {
+		return false
+	}
+	if !common.IsCanonicalGenerator(NTilde, h1) || !common.IsCanonicalGenerator(NTilde, h2) || h1.Cmp(h2) == 0 {
+		return false
+	}
+	// c1, c2 are Paillier ciphertexts from peers; reject non-canonical
+	// representations and any value sharing a factor with N (which would
+	// otherwise leak that factor through c^S1 mod N² or c^e mod N²).
+	if !common.IsCanonicalPaillierCiphertext(c1, pk.N) || !common.IsCanonicalPaillierCiphertext(c2, pk.N) {
+		return false
+	}
 
 	q := ec.Params().N
 	q3 := new(big.Int).Mul(q, q)   // q^2
@@ -318,10 +337,23 @@ func (pf *ProofBobWC) Verify(Session []byte, ec elliptic.Curve, pk *paillier.Pub
 
 	// 4. runs only in the "with check" mode from Fig. 10
 	if X != nil {
+		// Reject degenerate inputs that would make ScalarMult return nil
+		// and panic the .Add() chain below. e == 0 is astronomically
+		// unlikely under Fiat-Shamir but consistent with the Schnorr
+		// verifier which already rejects c == 0. X.ValidateBasic() and
+		// the same-curve check defend against direct API consumers that
+		// can build malformed ECPoints via NewECPointNoCurveCheck.
+		if e.Sign() == 0 || !X.ValidateBasic() || !tss.SameCurve(ec, pf.U.Curve()) {
+			return false
+		}
 		s1ModQ := new(big.Int).Mod(pf.S1, ec.Params().N)
 		gS1 := crypto.ScalarBaseMult(ec, s1ModQ)
-		xEU, err := X.ScalarMult(e).Add(pf.U)
-		if err != nil || !gS1.Equals(xEU) {
+		xE := X.ScalarMult(e)
+		if xE == nil {
+			return false
+		}
+		xEU, err := xE.Add(pf.U)
+		if err != nil || gS1 == nil || !gS1.Equals(xEU) {
 			return false
 		}
 	}

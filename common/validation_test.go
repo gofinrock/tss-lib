@@ -44,6 +44,37 @@ func TestIsUsableUnknownOrderModulus(t *testing.T) {
 	})
 }
 
+func TestIsCanonicalPaillierCiphertext(t *testing.T) {
+	N := new(big.Int).Mul(big.NewInt(11), big.NewInt(13)) // 143
+	NSq := new(big.Int).Mul(N, N)                         // 20449
+
+	t.Run("valid", func(tt *testing.T) {
+		assert.True(tt, common.IsCanonicalPaillierCiphertext(big.NewInt(7), N))
+	})
+	t.Run("nil c", func(tt *testing.T) {
+		assert.False(tt, common.IsCanonicalPaillierCiphertext(nil, N))
+	})
+	t.Run("nil N", func(tt *testing.T) {
+		assert.False(tt, common.IsCanonicalPaillierCiphertext(big.NewInt(7), nil))
+	})
+	t.Run("zero c", func(tt *testing.T) {
+		assert.False(tt, common.IsCanonicalPaillierCiphertext(big.NewInt(0), N))
+	})
+	t.Run("negative c", func(tt *testing.T) {
+		assert.False(tt, common.IsCanonicalPaillierCiphertext(big.NewInt(-1), N))
+	})
+	t.Run("c == N^2", func(tt *testing.T) {
+		assert.False(tt, common.IsCanonicalPaillierCiphertext(NSq, N))
+	})
+	t.Run("c > N^2 (non-canonical)", func(tt *testing.T) {
+		nonCanonical := new(big.Int).Add(NSq, big.NewInt(7))
+		assert.False(tt, common.IsCanonicalPaillierCiphertext(nonCanonical, N))
+	})
+	t.Run("c shares factor with N", func(tt *testing.T) {
+		assert.False(tt, common.IsCanonicalPaillierCiphertext(big.NewInt(11), N))
+	})
+}
+
 func TestIsCanonicalGenerator(t *testing.T) {
 	n := new(big.Int).Mul(big.NewInt(11), big.NewInt(13)) // 143
 	assert.True(t, common.IsCanonicalGenerator(n, big.NewInt(2)))

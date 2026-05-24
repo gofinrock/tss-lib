@@ -19,6 +19,9 @@ import (
 
 const (
 	RangeProofAliceBytesParts = 6
+	// verifyMinModulusBitLen matches the keygen wire-format check for
+	// Paillier N and NTilde (paillierBitsLen = 2048).
+	verifyMinModulusBitLen = 2048
 )
 
 var (
@@ -117,10 +120,26 @@ func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillie
 	if pf == nil || !pf.ValidateBasic() || ec == nil || pk == nil || pk.N == nil || NTilde == nil || h1 == nil || h2 == nil || c == nil {
 		return false
 	}
-	// Reject c where gcd(c, N) != 1 to prevent nil pointer dereference from c^(-e) in modular exponentiation.
-	// When gcd(c, N) != 1, the modular inverse doesn't exist and big.Int.Exp returns nil.
-	// This also covers the c == 0 case.
-	if new(big.Int).GCD(nil, nil, c, pk.N).Cmp(one) != 0 {
+	// pk.N and NTilde must both be plausible unknown-order moduli before any
+	// modular arithmetic runs (prevents prime / undersized / even / nil
+	// moduli from making downstream operations panic or trivially pass).
+	if !common.IsUsableUnknownOrderModulus(pk.N, verifyMinModulusBitLen) {
+		return false
+	}
+	if !common.IsUsableUnknownOrderModulus(NTilde, verifyMinModulusBitLen) {
+		return false
+	}
+	// h1, h2 are public NTilde generators agreed in keygen; require canonical
+	// non-trivial unit membership and distinctness.
+	if !common.IsCanonicalGenerator(NTilde, h1) || !common.IsCanonicalGenerator(NTilde, h2) || h1.Cmp(h2) == 0 {
+		return false
+	}
+	// c is the Paillier ciphertext from the peer. Require canonical
+	// encoding (in (0, N²)) and gcd(c, N) == 1 — the latter prevents
+	// c^(-e) mod N² from returning nil when the modular inverse doesn't
+	// exist; the former rejects non-canonical c + k·N² that could leak
+	// timing differences or bypass downstream invariants.
+	if !common.IsCanonicalPaillierCiphertext(c, pk.N) {
 		return false
 	}
 
