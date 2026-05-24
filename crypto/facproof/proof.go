@@ -18,6 +18,9 @@ import (
 
 const (
 	ProofFacBytesParts = 11
+	// verifyMinModulusBitLen matches the keygen wire-format check for
+	// Paillier N and NTilde (paillierBitsLen = 2048).
+	verifyMinModulusBitLen = 2048
 )
 
 type (
@@ -142,8 +145,32 @@ func (pf *ProofFac) Verify(Session []byte, ec elliptic.Curve, N0, NCap, s, t *bi
 	if pf == nil || !pf.ValidateBasic() || ec == nil || N0 == nil || NCap == nil || s == nil || t == nil {
 		return false
 	}
-	if N0.Sign() != 1 {
+	// Both N0 (the Paillier modulus being attested) and NCap (the auxiliary
+	// safe-prime-product ring used by the proof's commitments) must be valid
+	// unknown-order moduli, otherwise modular operations downstream can
+	// degenerate or panic.
+	if !common.IsUsableUnknownOrderModulus(N0, verifyMinModulusBitLen) {
 		return false
+	}
+	if !common.IsUsableUnknownOrderModulus(NCap, verifyMinModulusBitLen) {
+		return false
+	}
+	// s, t are public generators of QR_{NCap}; require canonical
+	// non-trivial unit membership and distinctness.
+	if !common.IsCanonicalGenerator(NCap, s) || !common.IsCanonicalGenerator(NCap, t) {
+		return false
+	}
+	if s.Cmp(t) == 0 {
+		return false
+	}
+	// P, Q, A, B, T are prover-supplied commitments in Z_{NCap}* — the
+	// equality checks below take them as raw big integers, so without unit
+	// membership the prover can submit non-canonical or zero-divisor values
+	// that bypass the Σ-relation's binding property.
+	for _, v := range []*big.Int{pf.P, pf.Q, pf.A, pf.B, pf.T} {
+		if !common.IsNumberInMultiplicativeGroup(NCap, v) {
+			return false
+		}
 	}
 
 	q := ec.Params().N

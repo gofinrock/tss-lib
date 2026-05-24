@@ -20,7 +20,12 @@ import (
 	cmts "github.com/bnb-chain/tss-lib/v4/crypto/commitments"
 )
 
-const Iterations = 128
+const (
+	Iterations = 128
+	// verifyMinModulusBitLen matches the keygen NTilde bit length so the
+	// verifier rejects undersized moduli before running modular operations.
+	verifyMinModulusBitLen = 2048
+)
 
 type (
 	Proof struct {
@@ -79,19 +84,19 @@ func (p *Proof) Verify(Session []byte, h1, h2, N *big.Int) bool {
 	if p == nil {
 		return false
 	}
-	if h1 == nil || h2 == nil || N == nil || N.Sign() != 1 {
+	// N must be a plausible safe-prime-product NTilde before any modular op.
+	if !common.IsUsableUnknownOrderModulus(N, verifyMinModulusBitLen) {
 		return false
 	}
 	modN := common.ModInt(N)
-	h1_ := new(big.Int).Mod(h1, N)
-	if h1_.Cmp(one) != 1 || h1_.Cmp(N) != -1 {
+	// h1, h2 must be canonical generator-shaped elements (1 < h < N and a
+	// unit). The earlier code allowed non-canonical h ≡ h' mod N inputs;
+	// require the raw bytes to already be in canonical range so any consumer
+	// that hashes the wire bytes outside Verify sees the same value.
+	if !common.IsCanonicalGenerator(N, h1) || !common.IsCanonicalGenerator(N, h2) {
 		return false
 	}
-	h2_ := new(big.Int).Mod(h2, N)
-	if h2_.Cmp(one) != 1 || h2_.Cmp(N) != -1 {
-		return false
-	}
-	if h1_.Cmp(h2_) == 0 {
+	if h1.Cmp(h2) == 0 {
 		return false
 	}
 	for i := range p.T {
@@ -100,7 +105,9 @@ func (p *Proof) Verify(Session []byte, h1, h2, N *big.Int) bool {
 		}
 	}
 	for i := range p.Alpha {
-		if p.Alpha[i] == nil || p.Alpha[i].Cmp(one) != 1 || p.Alpha[i].Cmp(N) != -1 {
+		// Alpha[i] = h1^a[i] mod N is also in Z_N* and != 1 for honest
+		// provers; same canonical-generator shape applies.
+		if !common.IsCanonicalGenerator(N, p.Alpha[i]) {
 			return false
 		}
 	}
