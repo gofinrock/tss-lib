@@ -51,3 +51,27 @@ func TestNewParametersAcceptsHonestIDs(t *testing.T) {
 	ctx := tss.NewPeerContext(sorted)
 	assert.NotNil(t, tss.NewParameters(ec, ctx, p1, 2, 1))
 }
+
+// TestNewParametersRejectsZeroResidueID verifies that a PartyID whose
+// `KeyInt() mod q == 0` (e.g. Key set to q itself, or any non-zero
+// multiple of q) is rejected up-front. A zero residue would, post-
+// Lagrange, either give that party the raw Shamir secret as their
+// share or collapse peer `bigWj.ScalarMult(iota=0)` to nil at signing
+// time in ecdsa/signing/prepare.go.
+func TestNewParametersRejectsZeroResidueID(t *testing.T) {
+	ec := tss.S256()
+	q := ec.Params().N
+	p1 := tss.NewPartyID("1", "P1", big.NewInt(42))
+	pZero := tss.NewPartyID("0", "P0", q) // Key == q, so mod q == 0
+	sorted := tss.SortPartyIDs(tss.UnSortedPartyIDs{p1, pZero})
+	ctx := tss.NewPeerContext(sorted)
+
+	defer func() {
+		r := recover()
+		assert.NotNil(t, r, "NewParameters must panic on zero-residue PartyID")
+		err, ok := r.(error)
+		assert.True(t, ok)
+		assert.Contains(t, err.Error(), "congruent to 0 mod q")
+	}()
+	tss.NewParameters(ec, ctx, p1, 2, 1)
+}

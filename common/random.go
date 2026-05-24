@@ -36,14 +36,22 @@ func MustGetRandomInt(rand io.Reader, bits int) *big.Int {
 	return n
 }
 
+// GetRandomPositiveInt returns a uniformly random integer in the open
+// interval (0, lessThan). The lower bound is strict: 0 is never
+// returned. This matches the name's "Positive" claim and the
+// assumption made by every Verify-side `IsInIntervalPositive` check on
+// values produced by this sampler.
+//
+// Returns nil if `lessThan` is nil, ≤ 1 (no value in (0, 1) exists),
+// or if the underlying RNG misbehaves.
 func GetRandomPositiveInt(rand io.Reader, lessThan *big.Int) *big.Int {
-	if lessThan == nil || zero.Cmp(lessThan) != -1 {
+	if lessThan == nil || lessThan.Cmp(one) <= 0 {
 		return nil
 	}
 	var try *big.Int
 	for {
 		try = MustGetRandomInt(rand, lessThan.BitLen())
-		if try.Cmp(lessThan) < 0 {
+		if try.Sign() > 0 && try.Cmp(lessThan) < 0 {
 			break
 		}
 	}

@@ -200,10 +200,25 @@ func NewReSharingParameters(ec elliptic.Curve, ctx, newCtx *PeerContext, partyID
 }
 
 // assertDistinctIDsModQ panics if any two ids share the same `KeyInt() mod q`
-// residue. Distinct raw keys with the same residue would later trigger a
-// `ModInverse(0, q)` zero-divisor panic deep inside signing / VSS
-// reconstruction; rejecting the bad configuration up-front gives the
-// caller a clear, locally-attributable error.
+// residue, or if any single id reduces to 0 mod q.
+//
+// Mod-q collisions would later trigger a `ModInverse(0, q)` zero-divisor
+// panic deep inside signing / VSS reconstruction.
+//
+// A zero residue is fatal in a different way: in Shamir secret sharing
+// the polynomial is evaluated at the party's key, and f(0) is the
+// shared secret itself. A party with `KeyInt() mod q == 0` would,
+// post-Lagrange, either receive the raw secret as their share (if
+// keygen flowed through `vss.Create` directly without `CheckIndexes`)
+// or cause peer Lagrange coefficients to collapse to 0 / nil at
+// signing time (see `ecdsa/signing/prepare.go` `iota = ksc *
+// ModInverse(...)` — when `ksc mod q == 0`, `iota == 0`, and
+// `bigWj.ScalarMult(0)` returns nil, panicking on the next chained
+// op). vss.Create already rejects zero IDs via `CheckIndexes`, but
+// rejecting here as well gives a clear, locally-attributable error
+// and defends external direct-API consumers that bypass `vss.Create`
+// (e.g. loading legacy `LocalPartySaveData` and going straight to
+// signing).
 func assertDistinctIDsModQ(ec elliptic.Curve, ids []*PartyID) {
 	if ec == nil {
 		return
@@ -214,7 +229,12 @@ func assertDistinctIDsModQ(ec elliptic.Curve, ids []*PartyID) {
 		if id == nil || id.KeyInt() == nil {
 			continue
 		}
-		residue := new(big.Int).Mod(id.KeyInt(), q).Text(16)
+		residueBig := new(big.Int).Mod(id.KeyInt(), q)
+		if residueBig.Sign() == 0 {
+			panic(fmt.Errorf("NewParameters: party key %s is congruent to 0 mod q; this would reveal the Shamir secret as the party's share and would cause zero Lagrange coefficients at signing time",
+				id.KeyInt().Text(16)))
+		}
+		residue := residueBig.Text(16)
 		if prior, exists := seen[residue]; exists {
 			panic(fmt.Errorf("NewParameters: party keys %s and %s collide mod q (residue 0x%s); the Lagrange interpolation would hit a zero divisor at signing time",
 				prior, id.KeyInt().Text(16), residue))
