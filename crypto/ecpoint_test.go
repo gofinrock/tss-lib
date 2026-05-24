@@ -120,6 +120,34 @@ func TestUnFlattenECPoints(t *testing.T) {
 	}
 }
 
+func TestIsIdentityAndValidateBasic(t *testing.T) {
+	edw := edwards.Edwards()
+	tss.RegisterCurve("ed25519", edw)
+	t.Run("Edwards identity (0,1)", func(tt *testing.T) {
+		p := NewECPointNoCurveCheck(edw, big.NewInt(0), big.NewInt(1))
+		assert.True(tt, p.IsOnCurve(), "Edwards (0,1) is on-curve")
+		assert.True(tt, p.IsIdentity())
+		assert.False(tt, p.ValidateBasic(), "ValidateBasic must reject identity")
+	})
+	t.Run("Edwards non-identity passes", func(tt *testing.T) {
+		k := big.NewInt(7)
+		x, y := edw.ScalarBaseMult(k.Bytes())
+		p := NewECPointNoCurveCheck(edw, x, y)
+		assert.False(tt, p.IsIdentity())
+		assert.True(tt, p.ValidateBasic())
+	})
+	t.Run("zero coord (0,0) rejected as identity even if reachable", func(tt *testing.T) {
+		p := NewECPointNoCurveCheck(edw, big.NewInt(0), big.NewInt(0))
+		assert.True(tt, p.IsIdentity())
+		assert.False(tt, p.ValidateBasic())
+	})
+	t.Run("nil coords", func(tt *testing.T) {
+		var p *ECPoint
+		assert.False(tt, p.IsIdentity())
+		assert.False(tt, p.ValidateBasic())
+	})
+}
+
 func TestS256EcpointJsonSerialization(t *testing.T) {
 	ec := btcec.S256()
 	tss.RegisterCurve("secp256k1", ec)

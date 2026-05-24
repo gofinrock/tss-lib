@@ -121,7 +121,33 @@ func (p *ECPoint) SetCurve(curve elliptic.Curve) *ECPoint {
 }
 
 func (p *ECPoint) ValidateBasic() bool {
-	return p != nil && p.coords[0] != nil && p.coords[1] != nil && p.IsOnCurve()
+	return p != nil && p.coords[0] != nil && p.coords[1] != nil && p.IsOnCurve() && !p.IsIdentity()
+}
+
+// IsIdentity reports whether p represents the identity element of its
+// curve. The two affine representations checked here cover both curve
+// families used by tss-lib:
+//
+//   - Edwards-form curves (Ed25519 via decred/dcrd/dcrec/edwards/v2):
+//     the affine identity is (0, 1) and IS on-curve, so it passes the
+//     isOnCurve test alone. Without this check, a malicious party can
+//     submit (0, 1) as a Schnorr proof's commitment or as a VSS share
+//     and the verifier accepts a degenerate proof.
+//   - Weierstrass-form curves (secp256k1, NIST): the identity is the
+//     point-at-infinity, conventionally (0, 0) in affine form. That
+//     coordinate is NOT on-curve and is already rejected by isOnCurve.
+//     The (0, 0) branch here is defense-in-depth in case future curve
+//     code surfaces a different infinity representation.
+//
+// Returns false for nil points (no coordinate to inspect).
+func (p *ECPoint) IsIdentity() bool {
+	if p == nil || p.coords[0] == nil || p.coords[1] == nil {
+		return false
+	}
+	if p.coords[0].Sign() != 0 {
+		return false
+	}
+	return p.coords[1].Sign() == 0 || p.coords[1].Cmp(big.NewInt(1)) == 0
 }
 
 func (p *ECPoint) EightInvEight() *ECPoint {

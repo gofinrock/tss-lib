@@ -13,6 +13,7 @@ import (
 
 	"github.com/bnb-chain/tss-lib/v4/common"
 	"github.com/bnb-chain/tss-lib/v4/crypto"
+	"github.com/bnb-chain/tss-lib/v4/tss"
 )
 
 type (
@@ -63,7 +64,20 @@ func NewZKProof(Session []byte, x *big.Int, X *crypto.ECPoint, rand io.Reader) (
 
 // NewZKProof verifies a new Schnorr ZK proof of knowledge of the discrete logarithm (GG18Spec Fig. 16)
 func (pf *ZKProof) Verify(Session []byte, X *crypto.ECPoint) bool {
+	// ValidateBasic on both points also rejects the Edwards identity (0,1),
+	// which would otherwise let a malicious prover trivially prove
+	// "knowledge of log of identity = 0" by submitting Alpha = identity
+	// and t = c*x (where x is the public X = identity case) — no real
+	// witness needed.
 	if pf == nil || !pf.ValidateBasic() || X == nil || !X.ValidateBasic() {
+		return false
+	}
+	// Both X and Alpha must live on the same curve as each other (and as
+	// the implicit ec derived from X.Curve()). Direct API consumers can
+	// construct ECPoints with NewECPointNoCurveCheck on a different curve,
+	// and the hash transcript / scalar mult below silently mix curves
+	// without this guard.
+	if !tss.SameCurve(X.Curve(), pf.Alpha.Curve()) {
 		return false
 	}
 	ec := X.Curve()
@@ -84,6 +98,9 @@ func (pf *ZKProof) Verify(Session []byte, X *crypto.ECPoint) bool {
 	}
 	tG := crypto.ScalarBaseMult(ec, pf.T)
 	Xc := X.ScalarMult(c)
+	if tG == nil || Xc == nil {
+		return false
+	}
 	aXc, err := pf.Alpha.Add(Xc)
 	if err != nil {
 		return false
@@ -137,6 +154,11 @@ func (pf *ZKVProof) Verify(Session []byte, V, R *crypto.ECPoint) bool {
 	if pf == nil || !pf.ValidateBasic() || V == nil || R == nil || !V.ValidateBasic() || !R.ValidateBasic() {
 		return false
 	}
+	// All three caller-supplied points must agree on the curve so the hash
+	// transcript and scalar mults below stay consistent.
+	if !tss.SameCurve(V.Curve(), R.Curve()) || !tss.SameCurve(V.Curve(), pf.Alpha.Curve()) {
+		return false
+	}
 	ec := V.Curve()
 	ecParams := ec.Params()
 	q := ecParams.N
@@ -155,9 +177,18 @@ func (pf *ZKVProof) Verify(Session []byte, V, R *crypto.ECPoint) bool {
 	}
 	tR := R.ScalarMult(pf.T)
 	uG := crypto.ScalarBaseMult(ec, pf.U)
-	tRuG, _ := tR.Add(uG) // already on the curve.
+	if tR == nil || uG == nil {
+		return false
+	}
+	tRuG, err := tR.Add(uG)
+	if err != nil {
+		return false
+	}
 
 	Vc := V.ScalarMult(c)
+	if Vc == nil {
+		return false
+	}
 	aVc, err := pf.Alpha.Add(Vc)
 	if err != nil {
 		return false
