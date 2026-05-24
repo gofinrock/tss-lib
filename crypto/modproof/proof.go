@@ -23,9 +23,16 @@ const (
 	// Miller-Rabin rounds for the composite check; 30 gives ≤4^-30
 	// false-positive rate against arbitrary composites.
 	verifyPrimalityRounds = 30
+	// fsDomainTag is the per-proof-type Fiat-Shamir domain separator
+	// (see facproof.fsSession docstring for rationale).
+	fsDomainTag = "tss-lib.v4.modproof"
 )
 
 var one = big.NewInt(1)
+
+func fsSession(Session []byte) []byte {
+	return append([]byte(fsDomainTag+"|"), Session...)
+}
 
 type (
 	ProofMod struct {
@@ -50,7 +57,7 @@ func NewProof(Session []byte, N, P, Q *big.Int, rand io.Reader) (*ProofMod, erro
 	// Fig 16.2
 	Y := [Iterations]*big.Int{}
 	for i := range Y {
-		ei := common.SHA512_256i_TAGGED(Session, append([]*big.Int{W, N}, Y[:i]...)...)
+		ei := common.SHA512_256i_TAGGED(fsSession(Session), append([]*big.Int{W, N}, Y[:i]...)...)
 		Y[i] = common.ModReduceHash(N, ei)
 	}
 
@@ -206,7 +213,7 @@ func (pf *ProofMod) Verify(Session []byte, N *big.Int) bool {
 	modN := common.ModInt(N)
 	Y := [Iterations]*big.Int{}
 	for i := range Y {
-		ei := common.SHA512_256i_TAGGED(Session, append([]*big.Int{pf.W, N}, Y[:i]...)...)
+		ei := common.SHA512_256i_TAGGED(fsSession(Session), append([]*big.Int{pf.W, N}, Y[:i]...)...)
 		Y[i] = common.ModReduceHash(N, ei)
 	}
 

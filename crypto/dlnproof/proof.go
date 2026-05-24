@@ -25,7 +25,14 @@ const (
 	// verifyMinModulusBitLen matches the keygen NTilde bit length so the
 	// verifier rejects undersized moduli before running modular operations.
 	verifyMinModulusBitLen = 2048
+	// fsDomainTag is the per-proof-type Fiat-Shamir domain separator
+	// (see facproof.fsSession docstring for rationale).
+	fsDomainTag = "tss-lib.v4.dlnproof"
 )
+
+func fsSession(Session []byte) []byte {
+	return append([]byte(fsDomainTag+"|"), Session...)
+}
 
 type (
 	Proof struct {
@@ -57,7 +64,7 @@ func NewDLNProof(Session []byte, h1, h2, x, p, q, N *big.Int, rand io.Reader) *P
 	}
 
 	msg := append([]*big.Int{h1, h2, N}, alpha[:]...)
-	c := common.SHA512_256i_TAGGED(Session, msg...)
+	c := common.SHA512_256i_TAGGED(fsSession(Session), msg...)
 	t := [Iterations]*big.Int{}
 	cIBI := new(big.Int)
 
@@ -112,7 +119,7 @@ func (p *Proof) Verify(Session []byte, h1, h2, N *big.Int) bool {
 		}
 	}
 	msg := append([]*big.Int{h1, h2, N}, p.Alpha[:]...)
-	c := common.SHA512_256i_TAGGED(Session, msg...)
+	c := common.SHA512_256i_TAGGED(fsSession(Session), msg...)
 	cIBI := new(big.Int)
 	for i := 0; i < Iterations; i++ {
 		cI := c.Bit(i)

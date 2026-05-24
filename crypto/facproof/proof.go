@@ -21,7 +21,20 @@ const (
 	// verifyMinModulusBitLen matches the keygen wire-format check for
 	// Paillier N and NTilde (paillierBitsLen = 2048).
 	verifyMinModulusBitLen = 2048
+	// fsDomainTag is the Fiat-Shamir domain separator prepended to the
+	// caller-supplied Session for every challenge derivation in this
+	// package. Cross-proof transcript collisions are already statistically
+	// implausible because each proof type hashes a different arity of
+	// big.Int inputs (length-encoded by SHA512_256i_TAGGED), but explicit
+	// type tagging makes the domain separation visible and audit-friendly.
+	fsDomainTag = "tss-lib.v4.facproof"
 )
+
+// fsSession returns the per-proof-type tagged Session bytes. Wire-incompat
+// with v3 by design (v4 module bump consumes this break).
+func fsSession(Session []byte) []byte {
+	return append([]byte(fsDomainTag+"|"), Session...)
+}
 
 type (
 	ProofFac struct {
@@ -95,7 +108,7 @@ func NewProof(Session []byte, ec elliptic.Curve, N0, NCap, s, t, N0p, N0q *big.I
 	// Fig 28.2 e
 	var e *big.Int
 	{
-		eHash := common.SHA512_256i_TAGGED(Session, N0, NCap, s, t, P, Q, A, B, T, sigma)
+		eHash := common.SHA512_256i_TAGGED(fsSession(Session), N0, NCap, s, t, P, Q, A, B, T, sigma)
 		e = common.ModReduceHash(q, eHash)
 	}
 
@@ -210,7 +223,7 @@ func (pf *ProofFac) Verify(Session []byte, ec elliptic.Curve, N0, NCap, s, t *bi
 
 	var e *big.Int
 	{
-		eHash := common.SHA512_256i_TAGGED(Session, N0, NCap, s, t, pf.P, pf.Q, pf.A, pf.B, pf.T, pf.Sigma)
+		eHash := common.SHA512_256i_TAGGED(fsSession(Session), N0, NCap, s, t, pf.P, pf.Q, pf.A, pf.B, pf.T, pf.Sigma)
 		e = common.ModReduceHash(q, eHash)
 	}
 	// Reject e == 0 for consistency with the Schnorr verifier. The

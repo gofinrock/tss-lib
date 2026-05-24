@@ -28,6 +28,21 @@ type (
 	}
 )
 
+// Per-proof-type Fiat-Shamir domain separators. See facproof.fsSession
+// for the rationale and v3↔v4 wire-incompat note.
+const (
+	fsDomainTagZK  = "tss-lib.v4.schnorr.zk"
+	fsDomainTagZKV = "tss-lib.v4.schnorr.zkv"
+)
+
+func fsSessionZK(Session []byte) []byte {
+	return append([]byte(fsDomainTagZK+"|"), Session...)
+}
+
+func fsSessionZKV(Session []byte) []byte {
+	return append([]byte(fsDomainTagZKV+"|"), Session...)
+}
+
 // NewZKProof constructs a new Schnorr ZK proof of knowledge of the discrete logarithm (GG18Spec Fig. 16)
 func NewZKProof(Session []byte, x *big.Int, X *crypto.ECPoint, rand io.Reader) (*ZKProof, error) {
 	if x == nil || X == nil || !X.ValidateBasic() {
@@ -43,7 +58,7 @@ func NewZKProof(Session []byte, x *big.Int, X *crypto.ECPoint, rand io.Reader) (
 
 	var c *big.Int
 	{
-		cHash := common.SHA512_256i_TAGGED(Session, X.X(), X.Y(), g.X(), g.Y(), alpha.X(), alpha.Y())
+		cHash := common.SHA512_256i_TAGGED(fsSessionZK(Session), X.X(), X.Y(), g.X(), g.Y(), alpha.X(), alpha.Y())
 		c = common.ModReduceHash(q, cHash)
 	}
 
@@ -90,7 +105,7 @@ func (pf *ZKProof) Verify(Session []byte, X *crypto.ECPoint) bool {
 
 	var c *big.Int
 	{
-		cHash := common.SHA512_256i_TAGGED(Session, X.X(), X.Y(), g.X(), g.Y(), pf.Alpha.X(), pf.Alpha.Y())
+		cHash := common.SHA512_256i_TAGGED(fsSessionZK(Session), X.X(), X.Y(), g.X(), g.Y(), pf.Alpha.X(), pf.Alpha.Y())
 		c = common.ModReduceHash(q, cHash)
 	}
 	if c.Sign() == 0 {
@@ -129,7 +144,7 @@ func NewZKVProof(Session []byte, V, R *crypto.ECPoint, s, l *big.Int, rand io.Re
 
 	var c *big.Int
 	{
-		cHash := common.SHA512_256i_TAGGED(Session, V.X(), V.Y(), R.X(), R.Y(), g.X(), g.Y(), alpha.X(), alpha.Y())
+		cHash := common.SHA512_256i_TAGGED(fsSessionZKV(Session), V.X(), V.Y(), R.X(), R.Y(), g.X(), g.Y(), alpha.X(), alpha.Y())
 		c = common.ModReduceHash(q, cHash)
 	}
 	modQ := common.ModInt(q)
@@ -169,7 +184,7 @@ func (pf *ZKVProof) Verify(Session []byte, V, R *crypto.ECPoint) bool {
 
 	var c *big.Int
 	{
-		cHash := common.SHA512_256i_TAGGED(Session, V.X(), V.Y(), R.X(), R.Y(), g.X(), g.Y(), pf.Alpha.X(), pf.Alpha.Y())
+		cHash := common.SHA512_256i_TAGGED(fsSessionZKV(Session), V.X(), V.Y(), R.X(), R.Y(), g.X(), g.Y(), pf.Alpha.X(), pf.Alpha.Y())
 		c = common.ModReduceHash(q, cHash)
 	}
 	if c.Sign() == 0 {

@@ -22,7 +22,24 @@ const (
 	// verifyMinModulusBitLen matches the keygen wire-format check for
 	// Paillier N and NTilde (paillierBitsLen = 2048).
 	verifyMinModulusBitLen = 2048
+	// fsDomainTag* are per-proof-type Fiat-Shamir domain separators
+	// (see facproof.fsSession docstring for rationale).
+	fsDomainTagRangeAlice = "tss-lib.v4.mta.range-alice"
+	fsDomainTagBob        = "tss-lib.v4.mta.bob"
+	fsDomainTagBobWC      = "tss-lib.v4.mta.bob-wc"
 )
+
+func fsSessionRangeAlice(Session []byte) []byte {
+	return append([]byte(fsDomainTagRangeAlice+"|"), Session...)
+}
+
+func fsSessionBob(Session []byte) []byte {
+	return append([]byte(fsDomainTagBob+"|"), Session...)
+}
+
+func fsSessionBobWC(Session []byte) []byte {
+	return append([]byte(fsDomainTagBobWC+"|"), Session...)
+}
 
 var (
 	zero = big.NewInt(0)
@@ -83,7 +100,7 @@ func ProveRangeAlice(Session []byte, ec elliptic.Curve, pk *paillier.PublicKey, 
 	// 8-9. e'
 	var e *big.Int
 	{ // must use RejectionSample
-		eHash := common.SHA512_256i_TAGGED(Session, append(pk.AsInts(), NTilde, h1, h2, c, z, u, w)...)
+		eHash := common.SHA512_256i_TAGGED(fsSessionRangeAlice(Session), append(pk.AsInts(), NTilde, h1, h2, c, z, u, w)...)
 		e = common.ModReduceHash(q, eHash)
 	}
 
@@ -204,7 +221,7 @@ func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillie
 	// 1-2. e'
 	var e *big.Int
 	{ // must use RejectionSample
-		eHash := common.SHA512_256i_TAGGED(Session, append(pk.AsInts(), NTilde, h1, h2, c, pf.Z, pf.U, pf.W)...)
+		eHash := common.SHA512_256i_TAGGED(fsSessionRangeAlice(Session), append(pk.AsInts(), NTilde, h1, h2, c, pf.Z, pf.U, pf.W)...)
 		e = common.ModReduceHash(q, eHash)
 	}
 	// Reject e == 0 for consistency with Schnorr / ProofBobWC. Negligible
