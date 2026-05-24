@@ -343,13 +343,13 @@ func (pf *ProofBobWC) Verify(Session []byte, ec elliptic.Curve, pk *paillier.Pub
 
 	// 4. runs only in the "with check" mode from Fig. 10
 	if X != nil {
-		// Defend against malformed direct-API X / U: ValidateBasic also
-		// rejects identity / off-curve coords, and same-curve guards
-		// against cross-curve mixing via NewECPointNoCurveCheck. pf.U is
+		// ValidateInSubgroup: same as ValidateBasic plus prime-order
+		// subgroup membership on composite-cofactor curves. pf.U is
 		// usually validated by the deserialization path's NewECPoint,
 		// but direct API consumers can bypass that — keep the explicit
-		// check here.
-		if !X.ValidateBasic() || !pf.U.ValidateBasic() || !tss.SameCurve(ec, pf.U.Curve()) {
+		// check here. Same-curve guards against cross-curve mixing
+		// via NewECPointNoCurveCheck.
+		if !X.ValidateInSubgroup() || !pf.U.ValidateInSubgroup() || !tss.SameCurve(ec, pf.U.Curve()) {
 			return false
 		}
 		s1ModQ := new(big.Int).Mod(pf.S1, ec.Params().N)

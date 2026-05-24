@@ -110,11 +110,18 @@ func (share *Share) Verify(ec elliptic.Curve, threshold int, vs Vs) bool {
 	var err error
 	modQ := common.ModInt(q)
 	v, t := vs[0], one // YRO : we need to have our accumulator outside of the loop
-	if v == nil || !v.SetCurve(ec).ValidateBasic() {
+	// ValidateInSubgroup additionally rejects low-order vs[j] on
+	// composite-cofactor curves (Ed25519). The EdDSA call sites in
+	// keygen/round_3, signing/round_3, and resharing/round_4 already
+	// project commitments through EightInvEight before reaching here,
+	// so honest paths pay the subgroup check redundantly; the check
+	// closes the gap for any direct vss.Share.Verify caller that
+	// bypasses that projection.
+	if v == nil || !v.SetCurve(ec).ValidateInSubgroup() {
 		return false
 	}
 	for j := 1; j <= threshold; j++ {
-		if vs[j] == nil || !vs[j].SetCurve(ec).ValidateBasic() {
+		if vs[j] == nil || !vs[j].SetCurve(ec).ValidateInSubgroup() {
 			return false
 		}
 		// t = k_i^j

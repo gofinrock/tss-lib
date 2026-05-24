@@ -150,6 +150,58 @@ func (p *ECPoint) IsIdentity() bool {
 	return p.coords[1].Sign() == 0 || p.coords[1].Cmp(big.NewInt(1)) == 0
 }
 
+// IsInPrimeOrderSubgroup reports whether p lies in the prime-order
+// subgroup of its curve, i.e. `[curve.N] * p == identity` where
+// `curve.N` is the prime subgroup order.
+//
+// For prime-order curves (cofactor 1 — secp256k1 / NIST), every on-curve
+// point trivially satisfies this by Lagrange's theorem; the explicit
+// computation here just confirms it at the cost of one extra ScalarMult.
+//
+// For composite-cofactor curves (Ed25519, cofactor 8) the check is
+// load-bearing: on-curve membership alone admits 8 small-order points
+// (the cofactor subgroup) that an adversary can submit as a Schnorr
+// commitment, VSS share, etc. to mount small-subgroup attacks. Callers
+// in those code paths should use this check (typically via
+// ValidateInSubgroup) on every untrusted EC point.
+//
+// Returns false for nil points or points whose [N]·p does not yield the
+// identity element.
+func (p *ECPoint) IsInPrimeOrderSubgroup() bool {
+	if p == nil || p.coords[0] == nil || p.coords[1] == nil || p.curve == nil {
+		return false
+	}
+	n := p.curve.Params().N
+	np := p.ScalarMult(n)
+	if np == nil {
+		// ScalarMult returns nil when the curve.ScalarMult result is the
+		// point-at-infinity (rejected by isOnCurve on Weierstrass). That
+		// IS the identity / prime-order witness for those curves.
+		return true
+	}
+	return np.IsIdentity()
+}
+
+// ValidateInSubgroup is the stricter sibling of ValidateBasic for
+// untrusted EC points on curves with composite cofactor. It runs the
+// basic on-curve / non-identity / non-nil checks and additionally
+// requires the point to live in the prime-order subgroup. On
+// prime-order curves (cofactor 1) the subgroup check is structurally
+// guaranteed by IsOnCurve and is skipped to save a ScalarMult.
+//
+// Callers consuming attacker-controlled EC points (Schnorr Alpha / X /
+// V / R, VSS vs[j], MtA ProofBobWC pf.U, etc.) should prefer this over
+// ValidateBasic.
+func (p *ECPoint) ValidateInSubgroup() bool {
+	if !p.ValidateBasic() {
+		return false
+	}
+	if !tss.HasCompositeCofactor(p.curve) {
+		return true
+	}
+	return p.IsInPrimeOrderSubgroup()
+}
+
 func (p *ECPoint) EightInvEight() *ECPoint {
 	q := p.ScalarMult(eight)
 	if q == nil {

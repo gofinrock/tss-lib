@@ -79,12 +79,13 @@ func NewZKProof(Session []byte, x *big.Int, X *crypto.ECPoint, rand io.Reader) (
 
 // NewZKProof verifies a new Schnorr ZK proof of knowledge of the discrete logarithm (GG18Spec Fig. 16)
 func (pf *ZKProof) Verify(Session []byte, X *crypto.ECPoint) bool {
-	// ValidateBasic on both points also rejects the Edwards identity (0,1),
-	// which would otherwise let a malicious prover trivially prove
-	// "knowledge of log of identity = 0" by submitting Alpha = identity
-	// and t = c*x (where x is the public X = identity case) — no real
-	// witness needed.
-	if pf == nil || !pf.ValidateBasic() || X == nil || !X.ValidateBasic() {
+	// ValidateInSubgroup rejects (a) nil / off-curve, (b) the Edwards
+	// identity (0, 1), and (c) on composite-cofactor curves, any
+	// low-order point outside the prime-order subgroup. The last
+	// closes the small-subgroup attack on Schnorr Alpha — Alpha does
+	// not go through EightInvEight, unlike VSS commitments in the
+	// EdDSA protocol path.
+	if pf == nil || X == nil || !X.ValidateInSubgroup() || pf.Alpha == nil || !pf.Alpha.ValidateInSubgroup() || pf.T == nil {
 		return false
 	}
 	// Both X and Alpha must live on the same curve as each other (and as
@@ -166,7 +167,12 @@ func NewZKVProof(Session []byte, V, R *crypto.ECPoint, s, l *big.Int, rand io.Re
 }
 
 func (pf *ZKVProof) Verify(Session []byte, V, R *crypto.ECPoint) bool {
-	if pf == nil || !pf.ValidateBasic() || V == nil || R == nil || !V.ValidateBasic() || !R.ValidateBasic() {
+	// ValidateInSubgroup on all three caller-supplied points enforces
+	// the same identity / low-order rejection as ZKProof.Verify above.
+	if pf == nil || V == nil || R == nil ||
+		!V.ValidateInSubgroup() || !R.ValidateInSubgroup() ||
+		pf.Alpha == nil || !pf.Alpha.ValidateInSubgroup() ||
+		pf.T == nil || pf.U == nil {
 		return false
 	}
 	// All three caller-supplied points must agree on the curve so the hash
