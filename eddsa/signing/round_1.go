@@ -108,7 +108,10 @@ func (round *round1) prepare() error {
 	if round.Threshold()+1 > len(ks) {
 		return fmt.Errorf("t+1=%d is not satisfied by the key count of %d", round.Threshold()+1, len(ks))
 	}
-	wi := PrepareForSigning(round.Params().EC(), i, len(ks), xi, ks)
+	wi, err := PrepareForSigning(round.Params().EC(), i, len(ks), xi, ks)
+	if err != nil {
+		return err
+	}
 
 	round.temp.wi = wi
 	return nil

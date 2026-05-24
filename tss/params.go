@@ -72,6 +72,16 @@ func NewParameters(ec elliptic.Curve, ctx *PeerContext, partyID *PartyID, partyC
 		panic(fmt.Errorf("NewParameters: threshold must be < partyCount, got t=%d n=%d",
 			threshold, partyCount))
 	}
+	// Reject PartyID sets whose keys collide modulo the curve order q.
+	// SortPartyIDs dedups raw bytes, but Lagrange arithmetic downstream
+	// (eddsa/ecdsa signing prepare.go, vss.Shares.ReConstruct) treats
+	// ID as `ID mod q`. A malicious party registering key = honest_key + q
+	// passes SortPartyIDs but causes `ModInverse((kj - ki) mod q, q)` to
+	// hit a zero divisor and panic at signing time. Fail here instead so
+	// the bad configuration never reaches a protocol round.
+	if ctx != nil {
+		assertDistinctIDsModQ(ec, ctx.IDs())
+	}
 	return &Parameters{
 		ec:                  ec,
 		parties:             ctx,
@@ -175,11 +185,41 @@ func (params *Parameters) SetSessionNonce(nonce *big.Int) {
 // Exported, used in `tss` client
 func NewReSharingParameters(ec elliptic.Curve, ctx, newCtx *PeerContext, partyID *PartyID, partyCount, threshold, newPartyCount, newThreshold int) *ReSharingParameters {
 	params := NewParameters(ec, ctx, partyID, partyCount, threshold)
+	// Apply the same mod-q distinctness check to the new committee. The
+	// new committee participates in VSS and Lagrange too, so a collision
+	// inside it would be just as fatal as one in the old committee.
+	if newCtx != nil {
+		assertDistinctIDsModQ(ec, newCtx.IDs())
+	}
 	return &ReSharingParameters{
 		Parameters:    params,
 		newParties:    newCtx,
 		newPartyCount: newPartyCount,
 		newThreshold:  newThreshold,
+	}
+}
+
+// assertDistinctIDsModQ panics if any two ids share the same `KeyInt() mod q`
+// residue. Distinct raw keys with the same residue would later trigger a
+// `ModInverse(0, q)` zero-divisor panic deep inside signing / VSS
+// reconstruction; rejecting the bad configuration up-front gives the
+// caller a clear, locally-attributable error.
+func assertDistinctIDsModQ(ec elliptic.Curve, ids []*PartyID) {
+	if ec == nil {
+		return
+	}
+	q := ec.Params().N
+	seen := make(map[string]string, len(ids))
+	for _, id := range ids {
+		if id == nil || id.KeyInt() == nil {
+			continue
+		}
+		residue := new(big.Int).Mod(id.KeyInt(), q).Text(16)
+		if prior, exists := seen[residue]; exists {
+			panic(fmt.Errorf("NewParameters: party keys %s and %s collide mod q (residue 0x%s); the Lagrange interpolation would hit a zero divisor at signing time",
+				prior, id.KeyInt().Text(16), residue))
+		}
+		seen[residue] = id.KeyInt().Text(16)
 	}
 }
 
