@@ -9,6 +9,7 @@ package tss
 import (
 	"crypto/elliptic"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"math/big"
 	"runtime"
@@ -52,8 +53,25 @@ const (
 	defaultSafePrimeGenTimeout = 5 * time.Minute
 )
 
-// Exported, used in `tss` client
+// Exported, used in `tss` client.
+//
+// Panics on invalid threshold / partyCount inputs (threshold < 1,
+// partyCount < 2, or threshold >= partyCount). These constraints come
+// from Shamir VSS — a valid (t, n) threshold scheme requires
+// 1 <= t < n with n >= 2. Invalid combinations would otherwise surface
+// as opaque panics deep in protocol execution; failing here gives
+// callers an immediate, clear signal.
 func NewParameters(ec elliptic.Curve, ctx *PeerContext, partyID *PartyID, partyCount, threshold int) *Parameters {
+	if partyCount < 2 {
+		panic(fmt.Errorf("NewParameters: partyCount must be >= 2, got %d", partyCount))
+	}
+	if threshold < 1 {
+		panic(fmt.Errorf("NewParameters: threshold must be >= 1, got %d", threshold))
+	}
+	if threshold >= partyCount {
+		panic(fmt.Errorf("NewParameters: threshold must be < partyCount, got t=%d n=%d",
+			threshold, partyCount))
+	}
 	return &Parameters{
 		ec:                  ec,
 		parties:             ctx,

@@ -43,7 +43,10 @@ func setUp(level string) {
 func TestStartRound1Paillier(t *testing.T) {
 	setUp("debug")
 
-	pIDs := tss.GenerateTestPartyIDs(1)
+	// Use n=2 / t=1 as the minimum valid threshold configuration; the
+	// scaffolding here only exercises single-party Paillier prep and
+	// then overrides pIDs from fixtures below.
+	pIDs := tss.GenerateTestPartyIDs(2)
 	p2pCtx := tss.NewPeerContext(pIDs)
 	threshold := 1
 	params := tss.NewParameters(tss.EC(), p2pCtx, pIDs[0], len(pIDs), threshold)
@@ -84,7 +87,9 @@ func TestStartRound1Paillier(t *testing.T) {
 func TestFinishAndSaveH1H2(t *testing.T) {
 	setUp("debug")
 
-	pIDs := tss.GenerateTestPartyIDs(1)
+	// Minimum valid (t, n) for NewParameters; this scaffolding only
+	// exercises Paillier H1/H2 save and then overrides pIDs below.
+	pIDs := tss.GenerateTestPartyIDs(2)
 	p2pCtx := tss.NewPeerContext(pIDs)
 	threshold := 1
 	params := tss.NewParameters(tss.EC(), p2pCtx, pIDs[0], len(pIDs), threshold)
