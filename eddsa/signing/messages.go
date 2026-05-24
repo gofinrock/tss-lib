@@ -121,9 +121,16 @@ func NewSignRound3Message(
 	return tss.NewMessage(meta, content, msg)
 }
 
+// edScalarMaxBytes is the maximum byte length for a canonical Ed25519
+// scalar (= 32). Any partial signature exceeding this length cannot
+// represent a valid in-range scalar and must be rejected at the
+// message boundary.
+const edScalarMaxBytes = 32
+
 func (m *SignRound3Message) ValidateBasic() bool {
 	return m != nil &&
-		common.NonEmptyBytes(m.S)
+		common.NonEmptyBytes(m.S) &&
+		len(m.S) <= edScalarMaxBytes
 }
 
 func (m *SignRound3Message) UnmarshalS() *big.Int {
