@@ -211,6 +211,12 @@ func (pf *ProofFac) Verify(Session []byte, ec elliptic.Curve, N0, NCap, s, t *bi
 		eHash := common.SHA512_256i_TAGGED(Session, N0, NCap, s, t, pf.P, pf.Q, pf.A, pf.B, pf.T, pf.Sigma)
 		e = common.RejectionSample(q, eHash)
 	}
+	// Reject e == 0 for consistency with the Schnorr verifier. The
+	// probability is negligible under Fiat-Shamir, but a zero challenge
+	// trivially collapses the Σ relation's binding.
+	if e.Sign() == 0 {
+		return false
+	}
 
 	// Fig 28. Equality Check
 	modNCap := common.ModInt(NCap)

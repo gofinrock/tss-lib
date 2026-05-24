@@ -331,18 +331,25 @@ func (pf *ProofBobWC) Verify(Session []byte, ec elliptic.Curve, pk *paillier.Pub
 		}
 		e = common.RejectionSample(q, eHash)
 	}
+	// Reject e == 0 for both with-check and without-check variants.
+	// Negligible under Fiat-Shamir but a zero challenge collapses the Σ
+	// relation binding, and consistency with Schnorr / RangeProofAlice
+	// keeps the rejection policy uniform across the repo.
+	if e.Sign() == 0 {
+		return false
+	}
 
 	var left, right *big.Int // for the following conditionals
 
 	// 4. runs only in the "with check" mode from Fig. 10
 	if X != nil {
-		// Reject degenerate inputs that would make ScalarMult return nil
-		// and panic the .Add() chain below. e == 0 is astronomically
-		// unlikely under Fiat-Shamir but consistent with the Schnorr
-		// verifier which already rejects c == 0. X.ValidateBasic() and
-		// the same-curve check defend against direct API consumers that
-		// can build malformed ECPoints via NewECPointNoCurveCheck.
-		if e.Sign() == 0 || !X.ValidateBasic() || !tss.SameCurve(ec, pf.U.Curve()) {
+		// Defend against malformed direct-API X / U: ValidateBasic also
+		// rejects identity / off-curve coords, and same-curve guards
+		// against cross-curve mixing via NewECPointNoCurveCheck. pf.U is
+		// usually validated by the deserialization path's NewECPoint,
+		// but direct API consumers can bypass that — keep the explicit
+		// check here.
+		if !X.ValidateBasic() || !pf.U.ValidateBasic() || !tss.SameCurve(ec, pf.U.Curve()) {
 			return false
 		}
 		s1ModQ := new(big.Int).Mod(pf.S1, ec.Params().N)

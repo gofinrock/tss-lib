@@ -158,6 +158,25 @@ func TestVerifyRejectsMalformedN(test *testing.T) {
 	})
 }
 
+func TestVerifyRejectsNonUnitZX(test *testing.T) {
+	preParams, err := keygen.GeneratePreParams(time.Minute*10, 8)
+	assert.NoError(test, err)
+	P, Q, N := preParams.PaillierSK.P, preParams.PaillierSK.Q, preParams.PaillierSK.N
+	proof, err := NewProof(Session, N, P, Q, rand.Reader)
+	assert.NoError(test, err)
+
+	test.Run("Z[0] non-unit (factor of N)", func(t *testing.T) {
+		bad := *proof
+		bad.Z[0] = new(big.Int).Set(P)
+		assert.False(t, bad.Verify(Session, N))
+	})
+	test.Run("X[0] non-unit (factor of N)", func(t *testing.T) {
+		bad := *proof
+		bad.X[0] = new(big.Int).Set(Q)
+		assert.False(t, bad.Verify(Session, N))
+	})
+}
+
 func TestAttackMod(test *testing.T) {
 	fmt.Printf("Starting TestAttackMod\n")
 

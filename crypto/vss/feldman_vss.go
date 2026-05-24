@@ -98,6 +98,11 @@ func (share *Share) Verify(ec elliptic.Curve, threshold int, vs Vs) bool {
 		return false
 	}
 	q := ec.Params().N
+	// share.ID is used as a Lagrange interpolation x-coordinate (always
+	// reduced mod q downstream), so the binding requirement is "non-zero
+	// mod q"; tss test IDs are random 256-bit integers that commonly
+	// exceed q on Ed25519 (where q ≈ 2^252), so enforcing a canonical
+	// range here would reject honest inputs.
 	idModQ := new(big.Int).Mod(share.ID, q)
 	if idModQ.Sign() == 0 || share.Share.Sign() <= 0 || share.Share.Cmp(q) >= 0 {
 		return false
@@ -116,6 +121,11 @@ func (share *Share) Verify(ec elliptic.Curve, threshold int, vs Vs) bool {
 		t = modQ.Mul(t, share.ID)
 		// v = v * v_j^t
 		vjt := vs[j].SetCurve(ec).ScalarMult(t)
+		// ScalarMult returns nil for degenerate cases (identity / off-curve
+		// result). Guard explicitly so Add doesn't dereference nil.
+		if vjt == nil {
+			return false
+		}
 		v, err = v.SetCurve(ec).Add(vjt)
 		if err != nil {
 			return false

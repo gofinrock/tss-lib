@@ -181,9 +181,18 @@ func (pf *ProofMod) Verify(Session []byte, N *big.Int) bool {
 		if pf.Z[i].Sign() != 1 || pf.Z[i].Cmp(N) != -1 {
 			return false
 		}
+		// Honest Z[i] = Y[i]^(N^-1 mod φ) is in Z_N*; rejecting non-units
+		// closes the defense-in-depth gap where a malicious prover supplies
+		// a non-coprime root that happens to satisfy the modexp identity.
+		if new(big.Int).GCD(nil, nil, pf.Z[i], N).Cmp(one) != 0 {
+			return false
+		}
 	}
 	for i := range pf.X {
 		if pf.X[i].Sign() != 1 || pf.X[i].Cmp(N) != -1 {
+			return false
+		}
+		if new(big.Int).GCD(nil, nil, pf.X[i], N).Cmp(one) != 0 {
 			return false
 		}
 	}

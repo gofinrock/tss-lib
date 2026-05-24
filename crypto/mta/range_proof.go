@@ -207,6 +207,11 @@ func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillie
 		eHash := common.SHA512_256i_TAGGED(Session, append(pk.AsInts(), NTilde, h1, h2, c, pf.Z, pf.U, pf.W)...)
 		e = common.RejectionSample(q, eHash)
 	}
+	// Reject e == 0 for consistency with Schnorr / ProofBobWC. Negligible
+	// under Fiat-Shamir but a zero challenge collapses the Σ relation.
+	if e.Sign() == 0 {
+		return false
+	}
 
 	var products *big.Int // for the following conditionals
 	minusE := new(big.Int).Sub(zero, e)
