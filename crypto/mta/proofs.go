@@ -243,22 +243,22 @@ func (pf *ProofBobWC) Verify(Session []byte, ec elliptic.Curve, pk *paillier.Pub
 	upperS2T2 := new(big.Int).Mul(q3, NTilde)
 	upperS2T2.Lsh(upperS2T2, 1)
 
-	if !common.IsInInterval(pf.Z, NTilde) {
+	if !common.IsInIntervalPositive(pf.Z, NTilde) {
 		return false
 	}
-	if !common.IsInInterval(pf.ZPrm, NTilde) {
+	if !common.IsInIntervalPositive(pf.ZPrm, NTilde) {
 		return false
 	}
-	if !common.IsInInterval(pf.T, NTilde) {
+	if !common.IsInIntervalPositive(pf.T, NTilde) {
 		return false
 	}
-	if !common.IsInInterval(pf.V, pk.NSquare()) {
+	if !common.IsInIntervalPositive(pf.V, pk.NSquare()) {
 		return false
 	}
-	if !common.IsInInterval(pf.W, NTilde) {
+	if !common.IsInIntervalPositive(pf.W, NTilde) {
 		return false
 	}
-	if !common.IsInInterval(pf.S, pk.N) {
+	if !common.IsInIntervalPositive(pf.S, pk.N) {
 		return false
 	}
 	if new(big.Int).GCD(nil, nil, pf.Z, NTilde).Cmp(one) != 0 {

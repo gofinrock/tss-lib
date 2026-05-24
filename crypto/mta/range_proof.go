@@ -166,16 +166,16 @@ func (pf *RangeProofAlice) Verify(Session []byte, ec elliptic.Curve, pk *paillie
 	upperS2 := new(big.Int).Mul(q3, NTilde)
 	upperS2.Lsh(upperS2, 1)
 
-	if !common.IsInInterval(pf.Z, NTilde) {
+	if !common.IsInIntervalPositive(pf.Z, NTilde) {
 		return false
 	}
-	if !common.IsInInterval(pf.U, pk.NSquare()) {
+	if !common.IsInIntervalPositive(pf.U, pk.NSquare()) {
 		return false
 	}
-	if !common.IsInInterval(pf.W, NTilde) {
+	if !common.IsInIntervalPositive(pf.W, NTilde) {
 		return false
 	}
-	if !common.IsInInterval(pf.S, pk.N) {
+	if !common.IsInIntervalPositive(pf.S, pk.N) {
 		return false
 	}
 	if new(big.Int).GCD(nil, nil, pf.Z, NTilde).Cmp(one) != 0 {
