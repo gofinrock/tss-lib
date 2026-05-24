@@ -139,18 +139,43 @@ func (p *LocalParty) StoreMessage(msg tss.ParsedMessage) (bool, *tss.Error) {
 	}
 	fromPIdx := msg.GetFrom().Index
 
-	// switch/case is necessary to store any messages beyond current round
-	// this does not handle message replays. we expect the caller to apply replay and spoofing protection.
+	// switch/case is necessary to store any messages beyond current round.
+	// Each branch rejects duplicate messages from the same party-index to
+	// prevent intra-session message replacement.
+	selfIdx := p.PartyID().Index
+
+	isDup := fromPIdx != selfIdx
+
+	dupErr := func() (bool, *tss.Error) {
+		return false, p.WrapError(
+			fmt.Errorf("duplicate %T from party %d", msg.Content(), fromPIdx),
+			msg.GetFrom())
+	}
 	switch msg.Content().(type) {
 	case *DGRound1Message:
+		if isDup && p.temp.dgRound1Messages[fromPIdx] != nil && !tss.IsSameMessage(p.temp.dgRound1Messages[fromPIdx], msg) {
+			return dupErr()
+		}
 		p.temp.dgRound1Messages[fromPIdx] = msg
 	case *DGRound2Message:
+		if isDup && p.temp.dgRound2Messages[fromPIdx] != nil && !tss.IsSameMessage(p.temp.dgRound2Messages[fromPIdx], msg) {
+			return dupErr()
+		}
 		p.temp.dgRound2Messages[fromPIdx] = msg
 	case *DGRound3Message1:
+		if isDup && p.temp.dgRound3Message1s[fromPIdx] != nil && !tss.IsSameMessage(p.temp.dgRound3Message1s[fromPIdx], msg) {
+			return dupErr()
+		}
 		p.temp.dgRound3Message1s[fromPIdx] = msg
 	case *DGRound3Message2:
+		if isDup && p.temp.dgRound3Message2s[fromPIdx] != nil && !tss.IsSameMessage(p.temp.dgRound3Message2s[fromPIdx], msg) {
+			return dupErr()
+		}
 		p.temp.dgRound3Message2s[fromPIdx] = msg
 	case *DGRound4Message:
+		if isDup && p.temp.dgRound4Messages[fromPIdx] != nil && !tss.IsSameMessage(p.temp.dgRound4Messages[fromPIdx], msg) {
+			return dupErr()
+		}
 		p.temp.dgRound4Messages[fromPIdx] = msg
 	default: // unrecognised message, just ignore!
 		common.Logger.Warningf("unrecognised message ignored: %v", msg)
