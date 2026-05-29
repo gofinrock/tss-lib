@@ -246,6 +246,12 @@ func (privateKey *PrivateKey) M() *big.Int {
 // In: In Proc. of the 5th ACM Conference on Computer and Communications Security (CCS-98. Citeseer (1998)
 
 func (privateKey *PrivateKey) Proof(k *big.Int, ecdsaPub *crypto2.ECPoint) Proof {
+	if k == nil {
+		panic("paillier.Proof: k must not be nil")
+	}
+	if ecdsaPub == nil {
+		panic("paillier.Proof: ecdsaPub must not be nil")
+	}
 	var pi Proof
 	iters := ProofIters
 	xs := GenerateXs(iters, k, privateKey.N, ecdsaPub)
@@ -367,6 +373,9 @@ func L(u, N *big.Int) *big.Int {
 
 // GenerateXs generates the challenges used in Paillier key Proof
 func GenerateXs(m int, k, N *big.Int, ecdsaPub *crypto2.ECPoint) []*big.Int {
+	if k == nil || N == nil || ecdsaPub == nil {
+		panic("GenerateXs: k, N, and ecdsaPub must not be nil")
+	}
 	var i, n int
 	ret := make([]*big.Int, m)
 	sX, sY := ecdsaPub.X(), ecdsaPub.Y()
