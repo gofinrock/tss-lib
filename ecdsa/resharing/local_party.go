@@ -74,7 +74,6 @@ func NewLocalParty(
 	out chan<- tss.Message,
 	end chan<- *keygen.LocalPartySaveData,
 ) tss.Party {
-	oldPartyCount := len(params.OldParties().IDs())
 	subset := key
 	if params.IsOldCommittee() {
 		subset = keygen.BuildLocalSaveDataSubset(key, params.OldParties().IDs())
@@ -88,19 +87,32 @@ func NewLocalParty(
 		out:       out,
 		end:       end,
 	}
-	// msgs init
-	p.temp.dgRound1Messages = make([]tss.ParsedMessage, oldPartyCount)           // from t+1 of Old Committee
-	p.temp.dgRound2Message1s = make([]tss.ParsedMessage, params.NewPartyCount()) // from n of New Committee
-	p.temp.dgRound2Message2s = make([]tss.ParsedMessage, params.NewPartyCount()) // "
-	p.temp.dgRound3Message1s = make([]tss.ParsedMessage, oldPartyCount)          // from t+1 of Old Committee
-	p.temp.dgRound3Message2s = make([]tss.ParsedMessage, oldPartyCount)          // "
-	p.temp.dgRound4Message1s = make([]tss.ParsedMessage, params.NewPartyCount()) // from n of New Committee
-	p.temp.dgRound4Message2s = make([]tss.ParsedMessage, params.NewPartyCount()) // from n of New Committee
+	// msgs init - arrays sized to accommodate maximum party index
+	oldMaxIdx := maxPartyIndex(params.OldParties().IDs())
+	newMaxIdx := maxPartyIndex(params.NewParties().IDs())
+	p.temp.dgRound1Messages = make([]tss.ParsedMessage, oldMaxIdx+1)           // from t+1 of Old Committee
+	p.temp.dgRound2Message1s = make([]tss.ParsedMessage, newMaxIdx+1) // from n of New Committee
+	p.temp.dgRound2Message2s = make([]tss.ParsedMessage, newMaxIdx+1) // "
+	p.temp.dgRound3Message1s = make([]tss.ParsedMessage, oldMaxIdx+1)          // from t+1 of Old Committee
+	p.temp.dgRound3Message2s = make([]tss.ParsedMessage, oldMaxIdx+1)          // "
+	p.temp.dgRound4Message1s = make([]tss.ParsedMessage, newMaxIdx+1) // from n of New Committee
+	p.temp.dgRound4Message2s = make([]tss.ParsedMessage, newMaxIdx+1) // from n of New Committee
 	// save data init
 	if key.LocalPreParams.ValidateWithProof() {
 		p.save.LocalPreParams = key.LocalPreParams
 	}
 	return p
+}
+
+// maxPartyIndex returns the maximum Index value among the given party IDs
+func maxPartyIndex(ids tss.SortedPartyIDs) int {
+	maxIdx := 0
+	for _, id := range ids {
+		if id.Index > maxIdx {
+			maxIdx = id.Index
+		}
+	}
+	return maxIdx
 }
 
 func (p *LocalParty) FirstRound() tss.Round {

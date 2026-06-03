@@ -43,7 +43,11 @@ func (round *round2) Start() *tss.Error {
 		if j == 0 || j == i {
 			continue
 		}
-		r1msg := round.temp.dgRound1Messages[j].Content().(*DGRound1Message)
+		jIdx := Pj.Index
+		if jIdx < 0 || jIdx >= len(round.temp.dgRound1Messages) || round.temp.dgRound1Messages[jIdx] == nil {
+			return round.WrapError(errors.New("dgRound1Message not received"), Pj)
+		}
+		r1msg := round.temp.dgRound1Messages[jIdx].Content().(*DGRound1Message)
 		SSIDj := r1msg.UnmarshalSSID()
 		if !bytes.Equal(SSID, SSIDj) {
 			return round.WrapError(errors.New("ssid mismatch"), Pj)

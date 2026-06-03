@@ -160,9 +160,16 @@ func (round *round4) Start() *tss.Error {
 
 	// 5-9.
 	modQ := common.ModInt(round.Params().EC().Params().N)
-	vjc := make([][]*crypto.ECPoint, len(round.OldParties().IDs()))
-	for j := 0; j <= len(vjc)-1; j++ { // P1..P_t+1. Ps are indexed from 0 here
+	vjc := make(map[int][]*crypto.ECPoint) // keyed by party index
+	for _, Pj := range round.OldParties().IDs() {
+		j := Pj.Index
 		// 6-7.
+		if j < 0 || j >= len(round.temp.dgRound1Messages) || round.temp.dgRound1Messages[j] == nil {
+			return round.WrapError(errors.New("dgRound1Message not received"), Pj)
+		}
+		if j < 0 || j >= len(round.temp.dgRound3Message2s) || round.temp.dgRound3Message2s[j] == nil {
+			return round.WrapError(errors.New("dgRound3Message2 not received"), Pj)
+		}
 		r1msg := round.temp.dgRound1Messages[j].Content().(*DGRound1Message)
 		r3msg2 := round.temp.dgRound3Message2s[j].Content().(*DGRound3Message2)
 
@@ -172,16 +179,18 @@ func (round *round4) Start() *tss.Error {
 		vCmtDeCmt := commitments.HashCommitDecommit{C: vCj, D: vDj}
 		ok, flatVs := vCmtDeCmt.DeCommit()
 		if !ok || len(flatVs) != (round.NewThreshold()+1)*2 { // they're points so * 2
-			// TODO collect culprits and return a list of them as per convention
-			return round.WrapError(errors.New("de-commitment of v_j0..v_jt failed"), round.Parties().IDs()[j])
+			return round.WrapError(errors.New("de-commitment of v_j0..v_jt failed"), Pj)
 		}
 		vj, err := crypto.UnFlattenECPoints(round.Params().EC(), flatVs)
 		if err != nil {
-			return round.WrapError(err, round.Parties().IDs()[j])
+			return round.WrapError(err, Pj)
 		}
 		vjc[j] = vj
 
 		// 8.
+		if j < 0 || j >= len(round.temp.dgRound3Message1s) || round.temp.dgRound3Message1s[j] == nil {
+			return round.WrapError(errors.New("dgRound3Message1 not received"), Pj)
+		}
 		r3msg1 := round.temp.dgRound3Message1s[j].Content().(*DGRound3Message1)
 		sharej := &vss.Share{
 			Threshold: round.NewThreshold(),
@@ -189,8 +198,7 @@ func (round *round4) Start() *tss.Error {
 			Share:     new(big.Int).SetBytes(r3msg1.Share),
 		}
 		if ok := sharej.Verify(round.Params().EC(), round.NewThreshold(), vj); !ok {
-			// TODO collect culprits and return a list of them as per convention
-			return round.WrapError(errors.New("share from old committee did not pass Verify()"), round.Parties().IDs()[j])
+			return round.WrapError(errors.New("share from old committee did not pass Verify()"), Pj)
 		}
 
 		// 9.
@@ -200,10 +208,24 @@ func (round *round4) Start() *tss.Error {
 	// 10-13.
 	var err error
 	Vc := make([]*crypto.ECPoint, round.NewThreshold()+1)
+	oldParties := round.OldParties().IDs()
+	if len(oldParties) == 0 {
+		return round.WrapError(errors.New("no old parties found"))
+	}
+	firstIdx := oldParties[0].Index
 	for c := 0; c <= round.NewThreshold(); c++ {
-		Vc[c] = vjc[0][c]
-		for j := 1; j <= len(vjc)-1; j++ {
-			Vc[c], err = Vc[c].Add(vjc[j][c])
+		vj0, ok := vjc[firstIdx]
+		if !ok || c >= len(vj0) {
+			return round.WrapError(errors.New("vjc missing or invalid"))
+		}
+		Vc[c] = vj0[c]
+		for _, Pj := range oldParties[1:] {
+			j := Pj.Index
+			vjj, ok := vjc[j]
+			if !ok || c >= len(vjj) {
+				return round.WrapError(errors.New("vjc missing or invalid"), Pj)
+			}
+			Vc[c], err = Vc[c].Add(vjj[c])
 			if err != nil {
 				return round.WrapError(errors2.Wrapf(err, "Vc[c].Add(vjc[j][c])"))
 			}
@@ -243,7 +265,8 @@ func (round *round4) Start() *tss.Error {
 	round.temp.newBigXjs = newBigXjs
 
 	// Send facProof to new parties
-	for j, Pj := range round.NewParties().IDs() {
+	for _, Pj := range round.NewParties().IDs() {
+		j := Pj.Index
 		if j == i {
 			continue
 		}
