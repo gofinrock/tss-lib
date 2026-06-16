@@ -85,11 +85,12 @@ func (round *round4) Start() *tss.Error {
 		go func(j int, msg tss.ParsedMessage, r2msg1 *DGRound2Message1) {
 			defer wg.Done()
 			ContextJ := common.AppendBigIntToBytesSlice(round.temp.ssid, big.NewInt(int64(j)))
+			// SECURITY (SRC-2026-926): ModProof verification is mandatory; a
+			// missing/invalid proof always attributes the sender as culprit.
+			// The NoProofMod compatibility bypass was removed.
 			modProof, err := r2msg1.UnmarshalModProof()
 			if err != nil {
-				if !round.Parameters.NoProofMod() {
-					paiProofCulprits[j] = msg.GetFrom()
-				}
+				paiProofCulprits[j] = msg.GetFrom()
 				common.Logger.Warningf("modProof verify failed for party %s", msg.GetFrom(), err)
 				return
 			}
@@ -99,19 +100,13 @@ func (round *round4) Start() *tss.Error {
 				return
 			}
 			// Verify the ModProof for the peer's NTilde. Mirrors the
-			// keygen-side check in keygen/round_3.go (commit 6ba5e0d).
-			// Closes the smooth-subgroup NTilde injection path for
-			// resharing — peer's saved NTilde / H1 / H2 (set below) is
-			// now bound to a Blum-integer-product attestation.
-			//
-			// Backward compatibility: peers built against the pre-v4
-			// `DGRound2Message1` (no nTildeModProof field) ship empty
-			// bytes; treat as NoProofMod()-style warn-only.
+			// keygen-side check in keygen/round_3.go. Closes the
+			// smooth-subgroup NTilde injection path for resharing — peer's
+			// saved NTilde / H1 / H2 (set below) is bound to a
+			// Blum-integer-product attestation. Also mandatory.
 			nTildeModProof, err := r2msg1.UnmarshalNTildeModProof()
 			if err != nil {
-				if !round.Parameters.NoProofMod() {
-					paiProofCulprits[j] = msg.GetFrom()
-				}
+				paiProofCulprits[j] = msg.GetFrom()
 				common.Logger.Warningf("nTildeModProof not present for party %s: %v", msg.GetFrom(), err)
 				return
 			}
