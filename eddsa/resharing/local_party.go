@@ -140,11 +140,19 @@ func (p *LocalParty) StoreMessage(msg tss.ParsedMessage) (bool, *tss.Error) {
 	fromPIdx := msg.GetFrom().Index
 
 	// switch/case is necessary to store any messages beyond current round.
-	// Each branch rejects duplicate messages from the same party-index to
-	// prevent intra-session message replacement.
-	selfIdx := p.PartyID().Index
-
-	isDup := fromPIdx != selfIdx
+	// Each branch rejects intra-session message replacement: once a slot is
+	// filled, a different-content message for it is rejected (idempotent
+	// identical re-sends are tolerated via tss.IsSameMessage).
+	//
+	// Resharing spans two independent, overlapping committee index spaces:
+	// old-committee-sourced slots (dgRound1Messages, dgRound3Message1s,
+	// dgRound3Message2s) are indexed by the sender's OLD index, new-sourced
+	// slots (dgRound2Messages, dgRound4Messages) by the sender's NEW index. A
+	// peer's index in one committee can numerically equal this party's index in
+	// the other, so p.PartyID().Index is NOT a safe self-echo discriminator: it
+	// would mis-read a colliding cross-committee peer as "self" and skip the
+	// duplicate guard. Detect our own echoes by sender IDENTITY (key) instead.
+	isDup := msg.GetFrom().KeyInt().Cmp(p.PartyID().KeyInt()) != 0
 
 	dupErr := func() (bool, *tss.Error) {
 		return false, p.WrapError(

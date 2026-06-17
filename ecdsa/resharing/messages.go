@@ -177,9 +177,9 @@ func (m *DGRound2Message1) UnmarshalModProof() (*modproof.ProofMod, error) {
 
 // UnmarshalNTildeModProof returns the ModProof attesting that the peer's
 // resharing NTilde is a Blum integer. Mirrors keygen's
-// `KGRound2Message2.UnmarshalNTildeModProof`. May return an error for
-// peers that pre-date this v4 field (the verifier in
-// round_4_new_step_2.go falls back to NoProofMod() behavior).
+// `KGRound2Message2.UnmarshalNTildeModProof`. Returns an error if the peer
+// shipped no/invalid proof; round_4_new_step_2.go now treats that as a hard
+// reject (SRC-2026-926 — the NoProofMod fallback was removed).
 func (m *DGRound2Message1) UnmarshalNTildeModProof() (*modproof.ProofMod, error) {
 	return modproof.NewProofFromBytes(m.GetNTildeModProof())
 }

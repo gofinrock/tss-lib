@@ -42,11 +42,13 @@ type (
 	}
 )
 
-var (
-	// rangeParameter l limits the bits of p or q to be in [1024-l, 1024+l]
-	rangeParameter = new(big.Int).Lsh(big.NewInt(1), 15)
-	one            = big.NewInt(1)
-)
+// NOTE: there is no explicit factor-size constant. The "no small factor"
+// guarantee is provided implicitly by the verifier's range check on Z1/Z2
+// against q³·√N0 (see Verify): combined with the third equality binding
+// N0p·N0q = N0 and a Fiat-Shamir challenge e ≈ 2²⁵⁶ (not grindable down to
+// admit a small factor), it forces both prime factors to be > ~2⁵¹². The
+// former `rangeParameter` constant (and an unused `one`) were dead code
+// (never referenced by Verify) and have been removed (SRC-2026-926 part B).
 
 // NewProof implements prooffac
 func NewProof(Session []byte, ec elliptic.Curve, N0, NCap, s, t, N0p, N0q *big.Int, rand io.Reader) (*ProofFac, error) {

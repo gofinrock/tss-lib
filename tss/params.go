@@ -33,9 +33,13 @@ type (
 		// all parties (e.g., a coordinator-assigned session ID) to prevent cross-session
 		// proof replay. If not set, falls back to 0 (no session binding).
 		sessionNonce *big.Int
-		// for legacy keygen/resharing compatibility only. These flags weaken
+		// for legacy keygen/resharing compatibility only. This flag weakens
 		// proof verification and should not be enabled in production.
-		noProofMod bool
+		// NOTE: the former noProofMod flag was removed (SRC-2026-926) —
+		// Paillier and NTilde ModProof verification is now mandatory, because
+		// ModProof is the only check that proves a peer's modulus is a true
+		// biprime (no small factors), without which a smooth/factorable
+		// modulus enables full MtA key-share extraction.
 		noProofFac bool
 		// random sources
 		partialKeyRand, rand io.Reader
@@ -132,17 +136,8 @@ func (params *Parameters) SetSafePrimeGenTimeout(timeout time.Duration) {
 	params.safePrimeGenTimeout = timeout
 }
 
-func (params *Parameters) NoProofMod() bool {
-	return params.noProofMod
-}
-
 func (params *Parameters) NoProofFac() bool {
 	return params.noProofFac
-}
-
-func (params *Parameters) SetNoProofMod() {
-	common.Logger.Warningf("SetNoProofMod enables legacy compatibility mode and weakens proof verification; do not use in production")
-	params.noProofMod = true
 }
 
 func (params *Parameters) SetNoProofFac() {

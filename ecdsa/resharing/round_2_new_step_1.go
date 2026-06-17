@@ -94,28 +94,22 @@ func (round *round2) Start() *tss.Error {
 	dlnProof1 := dlnproof.NewDLNProof(round.temp.ssid, h1i, h2i, alpha, p, q, NTildei, round.Rand())
 	dlnProof2 := dlnproof.NewDLNProof(round.temp.ssid, h2i, h1i, beta, p, q, NTildei, round.Rand())
 
-	modProof := &modproof.ProofMod{W: zero, X: *new([80]*big.Int), A: zero, B: zero, Z: *new([80]*big.Int)}
-	// nTildeModProof attests that the new-committee party's own NTilde is
-	// a Blum-integer product of safe primes — mirrors the keygen flow's
-	// `KGRound2Message2.nTildeModProof` (commit 6ba5e0d) and closes the
-	// smooth-subgroup NTilde injection path for resharing too. Generated
-	// the same way: derive safe primes (2p+1, 2q+1) from LocalPreParams's
-	// Germain primes, then call modproof.NewProof against NTildei.
-	var nTildeModProof *modproof.ProofMod
+	// SECURITY (SRC-2026-926): ModProof is mandatory; the NoProofMod
+	// compatibility switch was removed. Always produce the Paillier and NTilde
+	// ModProofs. nTildeModProof attests that the new-committee party's own
+	// NTilde is a Blum-integer product of safe primes — mirrors the keygen
+	// flow and closes the smooth-subgroup NTilde injection path for resharing.
 	ContextI := append(round.temp.ssid, big.NewInt(int64(i)).Bytes()...)
-	if !round.Parameters.NoProofMod() {
-		var err error
-		modProof, err = modproof.NewProof(ContextI, preParams.PaillierSK.N, preParams.PaillierSK.P, preParams.PaillierSK.Q, round.Rand())
-		if err != nil {
-			return round.WrapError(err, Pi)
-		}
-		one := big.NewInt(1)
-		safePrimeP := new(big.Int).Add(new(big.Int).Lsh(preParams.P, 1), one)
-		safePrimeQ := new(big.Int).Add(new(big.Int).Lsh(preParams.Q, 1), one)
-		nTildeModProof, err = modproof.NewProof(ContextI, preParams.NTildei, safePrimeP, safePrimeQ, round.Rand())
-		if err != nil {
-			return round.WrapError(err, Pi)
-		}
+	modProof, err := modproof.NewProof(ContextI, preParams.PaillierSK.N, preParams.PaillierSK.P, preParams.PaillierSK.Q, round.Rand())
+	if err != nil {
+		return round.WrapError(err, Pi)
+	}
+	one := big.NewInt(1)
+	safePrimeP := new(big.Int).Add(new(big.Int).Lsh(preParams.P, 1), one)
+	safePrimeQ := new(big.Int).Add(new(big.Int).Lsh(preParams.Q, 1), one)
+	nTildeModProof, err := modproof.NewProof(ContextI, preParams.NTildei, safePrimeP, safePrimeQ, round.Rand())
+	if err != nil {
+		return round.WrapError(err, Pi)
 	}
 	r2msg2, err := NewDGRound2Message1(
 		round.NewParties().IDs().Exclude(round.PartyID()), round.PartyID(),

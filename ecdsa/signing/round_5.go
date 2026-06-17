@@ -59,6 +59,11 @@ func (round *round5) Start() *tss.Error {
 	}
 
 	R = R.ScalarMult(round.temp.thetaInverse)
+	// SECURITY (SRC-2026-641): ScalarMult returns nil on a degenerate
+	// (identity / off-curve) result; guard before dereferencing R.X() below.
+	if R == nil {
+		return round.WrapError(errors.New("R.ScalarMult(thetaInverse) produced a nil point"))
+	}
 	N := round.Params().EC().Params().N
 	modN := common.ModInt(N)
 	rx := R.X()

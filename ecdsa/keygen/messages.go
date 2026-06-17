@@ -191,10 +191,10 @@ func NewKGRound2Message2(
 func (m *KGRound2Message2) ValidateBasic() bool {
 	return m != nil &&
 		common.NonEmptyMultiBytes(m.GetDeCommitment())
-	// ModProof and NTildeModProof byte-part counts are NOT enforced here for
-	// backward compatibility with peers that pre-date the proof additions.
-	// Recipients fall back to NoProofMod()-style behavior when a proof is
-	// missing; see round_3.go for the verification gating.
+	// ModProof / NTildeModProof byte-part counts are not enforced here (they
+	// are structurally validated when unmarshalled). round_3.go now verifies
+	// both unconditionally and hard-rejects a missing/invalid proof
+	// (SRC-2026-926 — the NoProofMod compatibility fallback was removed).
 }
 
 func (m *KGRound2Message2) UnmarshalDeCommitment() []*big.Int {
@@ -207,8 +207,9 @@ func (m *KGRound2Message2) UnmarshalModProof() (*modproof.ProofMod, error) {
 }
 
 // UnmarshalNTildeModProof returns the ModProof attesting that the peer's
-// NTilde is a Blum integer (square-free product of safe primes). May return
-// an error if the peer did not ship this proof (pre-rollout compatibility).
+// NTilde is a Blum integer (square-free product of safe primes). Returns an
+// error if the peer shipped no/invalid proof; round_3.go treats that as a
+// hard reject (SRC-2026-926 — the NoProofMod fallback was removed).
 func (m *KGRound2Message2) UnmarshalNTildeModProof() (*modproof.ProofMod, error) {
 	return modproof.NewProofFromBytes(m.GetNTildeModProof())
 }
