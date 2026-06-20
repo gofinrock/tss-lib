@@ -24,7 +24,12 @@ func (round *round3) Start() *tss.Error {
 	if !round.ReSharingParams().IsOldCommittee() {
 		return nil
 	}
-	round.allOldOK()
+	// NOTE(patch): see round_1_old_step_1.go. Pre-marking allOldOK() for a party
+	// in both committees lets it advance to round 4 before collecting the old
+	// committee's DGRound3 messages. Old-only parties must still pre-mark.
+	if !round.ReSharingParams().IsNewCommittee() {
+		round.allOldOK()
+	}
 
 	Pi := round.PartyID()
 	i := Pi.Index
@@ -33,7 +38,15 @@ func (round *round3) Start() *tss.Error {
 	for j, Pj := range round.NewParties().IDs() {
 		share := round.temp.NewShares[j]
 		r3msg1 := NewDGRound3Message1(Pj, round.PartyID(), share)
-		round.temp.dgRound3Message1s[i] = r3msg1
+		// NOTE(patch): store ONLY our own share in the self slot and do not emit
+		// it to the wire. The original stored r3msg1 into dgRound3Message1s[i]
+		// every iteration, leaving the self slot holding the LAST party's share;
+		// a driver that skips self-delivery then fails Verify(). Detect self by
+		// KeyInt. Mirrors the ecdsa/resharing patch.
+		if Pj.KeyInt().Cmp(round.PartyID().KeyInt()) == 0 {
+			round.temp.dgRound3Message1s[i] = r3msg1
+			continue
+		}
 		round.out <- r3msg1
 	}
 
