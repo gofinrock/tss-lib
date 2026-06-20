@@ -24,7 +24,14 @@ func (round *round3) Start() *tss.Error {
 	if !round.ReSharingParams().IsOldCommittee() {
 		return nil
 	}
-	round.allOldOK()
+	// NOTE(patch): see round_1_old_step_1.go. round3.Update() gates the new
+	// committee on oldOK; pre-marking allOldOK() for a party in both committees
+	// (refresh) lets it advance to round 4 before collecting the old committee's
+	// DGRound3 messages, aborting with "dgRound3Message2 not received". Old-only
+	// parties do not receive in this round, so they must still pre-mark.
+	if !round.ReSharingParams().IsNewCommittee() {
+		round.allOldOK()
+	}
 
 	Pi := round.PartyID()
 	i := Pi.Index
@@ -33,7 +40,19 @@ func (round *round3) Start() *tss.Error {
 	for j, Pj := range round.NewParties().IDs() {
 		share := round.temp.NewShares[j]
 		r3msg1 := NewDGRound3Message1(Pj, round.PartyID(), share)
-		round.temp.dgRound3Message1s[i] = r3msg1
+		// NOTE(patch): store ONLY our own share in the self slot, and do not
+		// emit it to the wire. The original code stored r3msg1 into
+		// dgRound3Message1s[i] on every iteration, so the self slot ended up
+		// holding the share addressed to the LAST new party instead of our own.
+		// Upstream masks this because the self share is also sent over the
+		// network and received back (overwriting the bad value); a driver that
+		// skips self-delivery is left with a wrong self share that fails
+		// Verify(). Detect self by identity (KeyInt), not index, since old/new
+		// committee indices can collide for overlapping committees.
+		if Pj.KeyInt().Cmp(round.PartyID().KeyInt()) == 0 {
+			round.temp.dgRound3Message1s[i] = r3msg1
+			continue
+		}
 		round.out <- r3msg1
 	}
 

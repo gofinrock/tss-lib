@@ -24,7 +24,14 @@ func (round *round2) Start() *tss.Error {
 	if !round.ReSharingParams().IsNewCommittee() {
 		return nil
 	}
-	round.allNewOK()
+	// NOTE(patch): round2.Update() gates the OLD committee on newOK. Pre-marking
+	// allNewOK() for a party in BOTH committees (refresh) defeats that gate, so it
+	// advances before collecting the new committee's DGRound2 messages and
+	// deadlocks. New-only parties are not old-committee receivers, so they may
+	// still pre-mark. (ecdsa/resharing round 2 has no allNewOK() call at all.)
+	if !round.ReSharingParams().IsOldCommittee() {
+		round.allNewOK()
+	}
 
 	Pi := round.PartyID()
 	i := Pi.Index

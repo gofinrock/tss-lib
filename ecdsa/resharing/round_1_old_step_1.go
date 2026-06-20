@@ -38,7 +38,16 @@ func (round *round1) Start() *tss.Error {
 	if !round.ReSharingParams().IsOldCommittee() {
 		return nil
 	}
-	round.allOldOK()
+	// NOTE(patch): only pre-mark old-committee slots OK for a party that is NOT
+	// also in the new committee. round1.Update() gates the new committee on
+	// oldOK; for an overlapping (refresh) party in both committees, allOldOK()
+	// here combined with allNewOK() above makes CanProceed() true before any
+	// DGRound1 peer message is collected, so it advances to round 2 on the first
+	// inbound message and aborts with "dgRound1Message not received". Old-only
+	// parties do not receive in this round, so they must still pre-mark.
+	if !round.ReSharingParams().IsNewCommittee() {
+		round.allOldOK()
+	}
 
 	// Require caller-provided SessionNonce — see ecdsa/keygen/round_1.go
 	// for full rationale (applies to resharing too).
